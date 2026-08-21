@@ -22,6 +22,16 @@ const MAX_TILT = 8;
 const MARGIN = 34;
 
 /**
+ * 木枠の下にカードが潜らないようにする内側の余白。
+ *
+ * 枠は左右22px (上下も同じ幅の帯を ::before/::after で描いている)。カードは
+ * ±8度 傾けているので、見た目の四隅は矩形より 20px ほど外へ出る。両方を足して
+ * この値まで内側に収める。マスの計算 (MARGIN) と分けているのは、端のマスだけを
+ * 押し込めば済み、格子そのものを変えなくてよいから。
+ */
+const EDGE = 44;
+
+/**
  * 「埋もれている」判定に使う格子の細かさ。カードの矩形を GRID×GRID 点で
  * サンプリングし、全部が後から貼られたカードに覆われていれば埋もれたとみなす。
  * 厳密な多角形演算をせずに済み、テストでも同じ結果が出る。
@@ -125,8 +135,11 @@ export function createBoard({
     // マス内でのずらし量。カードがマスより大きいぶんは、はみ出して重なる。
     const jitterX = (random() - 0.5) * Math.max(10, slot.slotW * 0.3);
     const jitterY = (random() - 0.5) * Math.max(10, slot.slotH * 0.26);
-    const left = Math.round(slot.cx - slot.cardW / 2 + jitterX);
-    const top = Math.round(slot.cy - slot.cardH / 2 + jitterY);
+    // 端のマスは、ずらした結果が枠の下に入らないところまで押し戻す
+    const maxLeft = Math.max(EDGE, view.innerWidth - EDGE - slot.cardW);
+    const maxTop = Math.max(EDGE, view.innerHeight - EDGE - slot.cardH);
+    const left = Math.round(clampTo(slot.cx - slot.cardW / 2 + jitterX, EDGE, maxLeft));
+    const top = Math.round(clampTo(slot.cy - slot.cardH / 2 + jitterY, EDGE, maxTop));
     card.el.style.left = `${left}px`;
     card.el.style.top = `${top}px`;
     card.el.style.setProperty('--rot', `${card.rot}deg`);
@@ -305,6 +318,10 @@ export function createBoard({
       cards: cards.map((c) => ({ id: c.photo.id, rot: c.rot, z: c.z, rect: c.rect })),
     }),
   };
+}
+
+function clampTo(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function intersects(a, b) {

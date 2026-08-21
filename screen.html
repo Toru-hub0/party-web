@@ -21,16 +21,11 @@
       <div class="sub"><span id="date"></span> <span id="count"></span></div>
     </div>
 
-    <!-- 右下: ゲスト投稿用QR (常時表示) -->
-    <div class="corner qr" id="qr-panel">
-      <div class="call">あなたも写真を<br />投稿してください</div>
-      <div class="code-box" id="qr-box"></div>
-      <!-- QRが読めない人向け。URLを開いてこのコードを入力すれば同じページに来られる -->
-      <div class="fallback">
-        <div class="lead">QRが読めないときは</div>
-        <div class="url" id="join-url"></div>
-        <div class="code" id="code"></div>
-      </div>
+    <!-- 右下: ゲストの入り口。QRは置かない (下の board.css の説明を参照) -->
+    <div class="corner invite" id="invite">
+      <span class="call">写真を送る</span>
+      <span class="url" id="join-url"></span>
+      <span class="code" id="code"></span>
     </div>
 
     <!-- アイドル時のスライドショー -->

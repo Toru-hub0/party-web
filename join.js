@@ -315,6 +315,16 @@ function updateDock() {
   dock.hidden = !show;
   // 内容がドックの下に隠れないよう、出ている間だけ余白を足す
   document.body.classList.toggle('dock-open', show);
+  // 名前・ひとことは、送るものが決まってから聞く。写真が無いうちから入力欄が
+  // 並んでいると、最初にやること (写真を選ぶ) が埋もれる。
+  el('about-form').hidden = !(state.picked.length > 0 || state.uploading);
+
+  // 写真を選んだあとは、送るボタン (ドック) が主役になる。
+  // 「写真を選ぶ」を赤のまま残すと主ボタンが2つになって、どちらを押すのか迷う。
+  const pick = el('pick');
+  const picked = state.picked.length > 0;
+  pick.classList.toggle('secondary', picked);
+  pick.textContent = picked ? '写真を追加' : '写真を選ぶ';
   el('senddock-hint').hidden = state.uploading;
   renderDockStack();
 }

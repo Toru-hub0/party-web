@@ -420,70 +420,41 @@ body.show-cursor {
   color: var(--ink-soft);
 }
 
-/* 右下: ゲスト投稿用QR。常時表示 (指示書 §4.4) */
-.qr {
+/* --- 右下: ゲストの入り口 (指示書 §4.4) --------------------------------
+ * QRは置かない。正方形なので盤面を大きく食うのに対し、会場では読み取れない
+ * ことも多い (暗い / プロジェクタが反射する / 古い機種)。URLと6文字のコードを
+ * 出しておけば、打てば必ず入れる。ゲスト用QRは幹事のアプリ側に残してある。
+ *
+ * 写真を貼れる面積を減らしたくないので、下辺に沿った細い1行にしている。
+ */
+.invite {
   right: 26px;
   bottom: 26px;
-  padding: 14px 14px 10px;
-  transform: rotate(1.4deg);
-  text-align: center;
-  width: clamp(150px, 15vw, 230px);
+  padding: 10px 18px;
+  transform: rotate(0.8deg);
+  display: flex;
+  align-items: baseline;
+  gap: clamp(10px, 1.2vw, 20px);
+  /* 数メートル離れて読むので折り返さない */
+  white-space: nowrap;
 }
 
-.qr .call {
-  font-size: clamp(13px, 1.2vw, 19px);
+.invite .call {
+  font-size: clamp(12px, 1.1vw, 18px);
   font-weight: 700;
-  margin-bottom: 8px;
-  line-height: 1.35;
-}
-
-.qr .code-box {
-  width: 100%;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  background: #fff;
-}
-
-.qr .code-box svg,
-.qr .code-box img {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* CDN が使えずQRを描けなかったときの代替表示 */
-.qr .fallback {
-  font-size: 12px;
-  word-break: break-all;
-  color: var(--ink-soft);
-  padding: 6px;
-}
-
-/* QRが読めない人向けの案内。QRより控えめにして、コードだけは大きく見せる */
-.qr .fallback {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #00000018;
-}
-
-.qr .lead {
-  font-size: clamp(11px, 0.95vw, 15px);
   color: var(--ink-soft);
 }
 
-.qr .url {
-  margin-top: 2px;
-  font-size: clamp(11px, 1vw, 16px);
+.invite .url {
+  font-size: clamp(12px, 1.15vw, 19px);
   font-weight: 600;
-  word-break: break-all;
 }
 
-.qr .code {
-  margin-top: 6px;
-  font-size: clamp(15px, 1.5vw, 24px);
+/* 打ってもらうのはこの6文字なので、いちばん大きく出す */
+.invite .code {
+  font-size: clamp(17px, 1.7vw, 28px);
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
 }
 
 /* 接続状態。正常なら出さない。 */

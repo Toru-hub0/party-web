@@ -1,6 +1,6 @@
 import { api, codeFromUrl, errorMessage } from './api.js';
 import { createBoard } from './board.js';
-import { joinUrl, SUPABASE_ANON_KEY, SUPABASE_URL } from './config.js';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config.js';
 
 /**
  * 会場スクリーン。写真の入手 (通信) と見せ方 (演出) の担当。
@@ -59,7 +59,7 @@ const board = createBoard({
   container: el('board'),
   slotCount: SLOT_COUNT,
   maxCards: MAX_CARDS,
-  reservedElements: [el('plate'), el('qr-panel')],
+  reservedElements: [el('plate'), el('invite')],
 });
 
 // =====================================================================
@@ -78,7 +78,6 @@ async function init() {
   el('join-url').textContent = new URL('.', window.location.href).href
     .replace(/^https?:\/\//, '')
     .replace(/\/$/, '');
-  renderQr(joinUrl(state.code));
 
   try {
     await fullSync({ initial: true });
@@ -302,31 +301,6 @@ function showSlide() {
     who.className = 'who';
     who.textContent = `${photo.nickname} さん`;
     label.append(who);
-  }
-}
-
-// =====================================================================
-// QRコード
-//
-// CDN の軽量ライブラリで描く。読めなかったらURLの文字表示に落とす
-// (QRが出ないだけで、会場の写真表示は動き続ける)。
-// =====================================================================
-
-async function renderQr(url) {
-  const box = el('qr-box');
-  try {
-    const { default: qrcode } = await import('https://esm.sh/qrcode-generator@1.4.4');
-    const qr = qrcode(0, 'M');
-    qr.addData(url);
-    qr.make();
-    // createSvgTag は文字列を返すのでそのまま埋める (入力はこちらが組んだURLのみ)
-    box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
-  } catch (e) {
-    console.warn('[screen] QR generation failed', e);
-    const fallback = document.createElement('div');
-    fallback.className = 'fallback';
-    fallback.textContent = url;
-    box.replaceChildren(fallback);
   }
 }
 
