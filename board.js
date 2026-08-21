@@ -78,6 +78,26 @@ export function createBoard({
   /** 実際に使っている格子 (自動で決めた場合も入る)。inspect() で覗ける。 */
   let gridInUse = null;
 
+  /**
+   * 貼り方。'scatter' = すこし傾けて重ねる (既定) / 'neat' = 傾けず重ねない。
+   * 写真の下のひとことと名前を出すかも、幹事がアプリから変えられる。
+   */
+  let style = 'scatter';
+  let showLabels = true;
+
+  /** 見せ方を差し替える。変わったときだけ貼り直す。 */
+  function setLook(next) {
+    const nextStyle = next?.style === 'neat' ? 'neat' : 'scatter';
+    // null / undefined は「出す」(既定)。false のときだけ隠す。
+    const nextLabels = next?.labels !== false;
+    if (nextStyle === style && nextLabels === showLabels) return;
+    style = nextStyle;
+    showLabels = nextLabels;
+    container.classList.toggle('no-labels', !showLabels);
+    // 傾きは貼ったときに決めているので、貼り方を変えたら振り直す
+    relayout({ retilt: true });
+  }
+
   /** 配置を差し替える。変わったときだけ貼り直す。 */
   function setGrid(next) {
     const cols = Number(next?.cols) || null;
@@ -101,12 +121,20 @@ export function createBoard({
     const slotW = boardW / cols;
     const slotH = boardH / rows;
 
-    // カードの高さは 写真(4:3) + 名前 + 余白 でおおよそ幅の 0.95 倍 + 20px。
-    // 幅・高さの両方がマスに収まる大きさを選ぶ (少しはみ出させて重なりを作る)。
-    const byWidth = slotW * 1.08;
-    const byHeight = (slotH * 1.06 - 20) / 0.95;
+    /*
+     * カードの高さは 写真(4:3) + 下の文字 + 余白 でおおよそ幅の 0.95 倍 + 20px。
+     * 文字を出さないときはその分だけ低い。
+     *
+     * scatter はマスより少し大きくして重なりを作る。neat はマスより小さくして
+     * 重ならないようにする (「きちんと並べる」の見た目)。
+     */
+    const ratio = showLabels ? 0.95 : 0.8;
+    const fill = style === 'neat' ? 0.92 : 1.08;
+    const fillH = style === 'neat' ? 0.92 : 1.06;
+    const byWidth = slotW * fill;
+    const byHeight = (slotH * fillH - 20) / ratio;
     const cardW = Math.max(120, Math.min(byWidth, byHeight));
-    const cardH = cardW * 0.95 + 20;
+    const cardH = cardW * ratio + 20;
     container.style.setProperty('--card-w', `${Math.round(cardW)}px`);
 
     // 左上のイベント名と右下のQRに重なるマスは使わない
@@ -153,8 +181,10 @@ export function createBoard({
   function placeCard(card) {
     const slot = card.slot;
     // マス内でのずらし量。カードがマスより大きいぶんは、はみ出して重なる。
-    const jitterX = (random() - 0.5) * Math.max(10, slot.slotW * 0.3);
-    const jitterY = (random() - 0.5) * Math.max(10, slot.slotH * 0.26);
+    // neat のときはずらさない (マスの中央にきちんと置く)。
+    const spread = style === 'neat' ? 0 : 1;
+    const jitterX = spread * (random() - 0.5) * Math.max(10, slot.slotW * 0.3);
+    const jitterY = spread * (random() - 0.5) * Math.max(10, slot.slotH * 0.26);
     // 端のマスは、ずらした結果が枠の下に入らないところまで押し戻す。
     // floor しているのは、このあと Math.round で 1px 未満だけ外へ出るのを防ぐため
     // (カードの幅・高さは割り算の結果なので小数になる)。
@@ -265,7 +295,7 @@ export function createBoard({
       photo,
       slot,
       z: ++seq,
-      rot: (random() * 2 - 1) * MAX_TILT,
+      rot: style === 'neat' ? 0 : (random() * 2 - 1) * MAX_TILT,
       el: buildCardElement(photo, cards.length),
     };
     slot.stack++;
@@ -307,10 +337,11 @@ export function createBoard({
   }
 
   /** 画面サイズが変わったら全部貼り直す (演出なし。枚数は変えない)。 */
-  function relayout() {
+  function relayout({ retilt = false } = {}) {
     const existing = [...cards];
     layoutSlots();
     for (const card of existing) {
+      if (retilt) card.rot = style === 'neat' ? 0 : (random() * 2 - 1) * MAX_TILT;
       const slot = pickSlot();
       if (!slot) {
         // マスが1つも作れない (画面が極端に小さい) ときだけ外す
@@ -329,6 +360,7 @@ export function createBoard({
     relayout,
     layoutSlots,
     setGrid,
+    setLook,
     has: (photoId) => cards.some((c) => c.photo.id === photoId),
     ids: () => cards.map((c) => c.photo.id),
     get count() {
@@ -339,6 +371,8 @@ export function createBoard({
       slots: slots.length,
       /** いま使っている格子。指定が無ければ自動で決めた値。 */
       grid: gridInUse,
+      style,
+      showLabels,
       stacks: slots.map((s) => s.stack),
       cards: cards.map((c) => ({ id: c.photo.id, rot: c.rot, z: c.z, rect: c.rect })),
     }),

@@ -243,18 +243,29 @@ input[type='text'] {
 }
 
 /* --- 選んだ写真のプレビュー ----------------------------------------- */
+/*
+ * 小さなサムネイルだと「これで合っているか」が確かめられない。送る直前に
+ * いちばん見たいものなので、幅いっぱいまで使う。1枚なら1列 (最大)、
+ * 2枚以上なら2列。
+ */
 .previews {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin: 14px 0 0;
   padding: 0;
   list-style: none;
 }
 
+/* 1枚だけのときは1列にして最大で見せる */
+.previews:has(li:only-child) {
+  grid-template-columns: 1fr;
+}
+
 .previews li {
   position: relative;
-  aspect-ratio: 1;
+  /* 正方形に切ると構図が分からないので、写真に近い形で見せる */
+  aspect-ratio: 4 / 3;
 }
 
 .previews img {
@@ -264,6 +275,17 @@ input[type='text'] {
   border-radius: var(--radius-sm);
   background: var(--bg);
   display: block;
+}
+
+/* 1枚のときは切り取らず、写真の形そのままで大きく出す */
+.previews li:only-child {
+  aspect-ratio: auto;
+}
+
+.previews li:only-child img {
+  height: auto;
+  max-height: 62vh;
+  object-fit: contain;
 }
 
 .previews button {

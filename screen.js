@@ -148,6 +148,7 @@ function renderHeader() {
   applyTheme(state.event.theme);
   // 幹事がアプリで配置を変えたら、開いたままのこの画面も並び直る
   board.setGrid({ cols: state.event.screen_cols, rows: state.event.screen_rows });
+  board.setLook({ style: state.event.screen_style, labels: state.event.screen_labels });
 }
 
 /** イベントに設定されたテーマ (コルク / 黒板 / ナイト) を反映する。 */
