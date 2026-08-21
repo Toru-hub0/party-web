@@ -1,0 +1,547 @@
+/*
+ * 会場スクリーンのスタイル (コルクボード)。
+ *
+ * 前提: プロジェクタ / TV に全画面で映す。見る人は数メートル離れている。
+ *   → 文字は大きく、色のコントラストは強め、細い線は使わない。
+ *   → 一晩中つけっぱなしなので、常時動くアニメーションは置かない
+ *     (焼き付き・チラつき・視覚的な疲れを避ける)。動くのは新着の瞬間だけ。
+ */
+/* --- 地の質感 --------------------------------------------------------
+ * 粒や木目は SVG で実際に描いたタイル (web/textures.css)。
+ *   生成: node scripts/generate-textures.mjs
+ * ここに残しているのは、その上に薄くかける「表面のざらつき」だけ。
+ * ノイズフィルタだけで作ると砂かテラゾーに見えてしまうため、粒は描いている。
+ */
+:root {
+  --tex-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.22'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
+
+  --cork: #c69a62;
+  --cork-light: #d4ab77;
+  --cork-dark: #ac8049;
+  --cork-deep: #7d5423;
+  --paper: #fffdf6;
+  --ink: #2f2a22;
+  --ink-soft: #6d6353;
+  --pin: #d9463a;
+  --pin-dark: #a32e25;
+  --tape: #f2e6b8;
+
+  /* 隅のパネル・木枠・スライドショーの覆い。テーマで差し替える */
+  --panel: #fffdf6f2;
+  --frame: #6f4a1e;
+  --frame-inner: #8d6231;
+  --veil: #2b1c08e0;
+
+  /* カードの大きさは JS が画面サイズから決めて上書きする */
+  --card-w: 260px;
+}
+
+/* --- テーマ (party_events.theme) -------------------------------------
+ * body に theme-cork / theme-blackboard / theme-night が付く (screen.js)。
+ * パーティごとに会場の雰囲気を変えられるようにするための仕組みで、
+ * 色は変数の差し替え、地の模様だけ .board を個別に上書きしている。
+ * テーマを増やすときはここに1ブロック足すだけでよい。
+ */
+body.theme-blackboard {
+  --cork: #33443a;
+  --cork-dark: #26332b;
+  --cork-deep: #1a231d;
+  --paper: #f7f4e9;
+  --ink: #26251f;
+  --ink-soft: #5d5a4c;
+  --pin: #e8c96a;
+  --pin-dark: #b08f2f;
+  --tape: #e9e4cd;
+  --panel: #f7f4e9f2;
+  --frame: #7a5a2e;
+  --frame-inner: #9a7640;
+  --veil: #101a13e0;
+}
+
+body.theme-blackboard .board {
+  background-color: var(--cork);
+  /* チョークの粉の拭き残し + わずかな面のムラ */
+  background-image:
+    var(--tex-grain),
+    var(--tex-chalk),
+    radial-gradient(125% 115% at 50% 42%, #ffffff00 40%, #00000099 100%),
+    linear-gradient(168deg, #3d5145, #2b3a31 60%, #222e27);
+  background-size: 240px 240px, 460px 460px, 100% 100%, 100% 100%;
+  background-blend-mode: overlay, normal, multiply, normal;
+}
+
+body.theme-night {
+  --cork: #241c46;
+  --cork-dark: #1a1435;
+  --cork-deep: #120d26;
+  --paper: #f5f2fd;
+  --ink: #241f33;
+  --ink-soft: #5d5674;
+  --pin: #8b78e6;
+  --pin-dark: #5f4bbd;
+  --tape: #ded7f5;
+  --panel: #f5f2fdf2;
+  --frame: #3b2f6b;
+  --frame-inner: #574a94;
+  --veil: #0d0920e0;
+}
+
+body.theme-night .board {
+  background-color: var(--cork);
+  /* 夜空。星のタイル + 星雲のような色ムラ */
+  background-image:
+    var(--tex-stars),
+    radial-gradient(70% 60% at 22% 18%, #5b4bb055, transparent 70%),
+    radial-gradient(60% 55% at 78% 76%, #7b64c455, transparent 65%),
+    radial-gradient(125% 115% at 50% 45%, #ffffff00 38%, #05031099 100%),
+    linear-gradient(165deg, #2c2358, #221a46 55%, #171034);
+  background-size: 520px 520px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-blend-mode: normal, screen, screen, multiply, normal;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* 会場スクリーンはスクロールさせない */
+  background: var(--cork);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP',
+    'Yu Gothic', sans-serif;
+  color: var(--ink);
+  cursor: none; /* マウスカーソルを映さない */
+}
+
+body.show-cursor {
+  cursor: default;
+}
+
+/* --- コルク地 -------------------------------------------------------
+ * 画像ファイルを読まずCSSだけで作る (会場のネットワークに依存させない)。
+ *
+ * 重ね方 (上から):
+ *   穴 → 細かい粒 → 大きめの斑 → 上からの光 → 縁の暗がり → 地色
+ * 単色 + ドット模様だと「茶色い壁紙」に見えてしまうので、実際のコルクと同じ
+ * 「細かい粒が固まって斑になり、隙間に穴が空く」構造を3層のノイズで作っている。
+ */
+.board {
+  position: fixed;
+  inset: 0;
+  background-color: var(--cork);
+  background-image:
+    var(--tex-grain),
+    linear-gradient(180deg, #ffffff12, #ffffff00 32%),
+    radial-gradient(125% 115% at 50% 42%, #ffffff00 42%, #3b210899 100%),
+    var(--tex-cork);
+  background-size: 240px 240px, 100% 100%, 100% 100%, 400px 400px;
+  background-blend-mode: overlay, screen, multiply, normal;
+}
+
+/* --- 木枠 ------------------------------------------------------------
+ * 木目のタイルを border-image で敷く。左右の桟は縦目、上下の桟は横目
+ * (本物の額縁と同じ向き) にするため、上下は ::before で別に描いている。
+ */
+.frame {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  border-left: 22px solid var(--frame);
+  border-right: 22px solid var(--frame);
+  border-image-source: var(--tex-wood);
+  border-image-slice: 46;
+  border-image-repeat: repeat;
+  /* 板全体が奥まって見えるように、内側に影を落とす */
+  box-shadow: inset 0 0 90px #2a170560;
+}
+
+/* 上下の桟 (木目は横向き) */
+.frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-top: 22px solid var(--frame);
+  border-bottom: 22px solid var(--frame);
+  border-image-source: var(--tex-wood-h);
+  border-image-slice: 46;
+  border-image-repeat: repeat;
+}
+
+/* 枠とコルクの境の段差 (上は影、下は光で厚みを出す) */
+.frame::after {
+  content: '';
+  position: absolute;
+  inset: 22px 0;
+  box-shadow:
+    inset 0 2px 6px #00000066,
+    inset 0 -1px 0 #ffffff22,
+    inset 1px 0 0 #00000033,
+    inset -1px 0 0 #00000033;
+}
+
+/* --- 写真カード ------------------------------------------------------ */
+.card {
+  position: absolute;
+  width: var(--card-w);
+  background: var(--paper);
+  padding: 10px 10px 8px;
+  border-radius: 3px;
+  box-shadow: 0 8px 18px #00000055, 0 1px 0 #ffffff88 inset;
+  /* --rot は JS が写真ごとにランダムで入れる (-8deg〜8deg) */
+  transform: rotate(var(--rot, 0deg));
+  transform-origin: 50% 0%;
+  will-change: transform, opacity;
+}
+
+.card .shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #e8e0cf;
+}
+
+.card .label {
+  padding: 6px 2px 0;
+  min-height: 1.4em;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.card .caption {
+  display: block;
+  font-size: calc(var(--card-w) * 0.072);
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card .who {
+  display: block;
+  font-size: calc(var(--card-w) * 0.058);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 画鋲 */
+.card .pin {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff8b80, var(--pin) 45%, var(--pin-dark));
+  box-shadow: 0 3px 5px #00000066;
+}
+
+/* マスキングテープ (画鋲と交互に使って単調さを消す) */
+.card.taped .pin {
+  display: none;
+}
+
+.card.taped::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 82px;
+  height: 28px;
+  margin-left: -41px;
+  background: var(--tape);
+  opacity: 0.85;
+  box-shadow: 0 2px 4px #00000033;
+  transform: rotate(-4deg);
+  /* テープの端をちぎった感じにする */
+  clip-path: polygon(
+    0% 12%, 8% 0%, 20% 10%, 34% 2%, 50% 11%, 66% 3%, 80% 12%, 92% 4%, 100% 14%,
+    100% 88%, 90% 100%, 76% 90%, 60% 99%, 44% 89%, 28% 98%, 14% 88%, 0% 96%
+  );
+}
+
+/* --- 新着の演出 ------------------------------------------------------
+ * 上からポンと落ちてきて、画鋲を軸に少し揺れて止まる。
+ * 「増えたこと」に会場の視線が向くのが目的なので 1 秒弱で終わらせる。
+ */
+.card.arrive {
+  animation: drop-in 0.9s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  z-index: 30;
+}
+
+@keyframes drop-in {
+  0% {
+    transform: translateY(-70vh) rotate(calc(var(--rot, 0deg) - 16deg)) scale(1.06);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  55% {
+    transform: translateY(0) rotate(calc(var(--rot, 0deg) + 7deg)) scale(1);
+  }
+  75% {
+    transform: translateY(0) rotate(calc(var(--rot, 0deg) - 3.5deg));
+  }
+  90% {
+    transform: translateY(0) rotate(calc(var(--rot, 0deg) + 1.5deg));
+  }
+  100% {
+    transform: translateY(0) rotate(var(--rot, 0deg));
+  }
+}
+
+/* 古い写真の入れ替え (静かに消す) */
+.card.leave {
+  animation: fade-out 0.8s ease forwards;
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+    transform: rotate(var(--rot, 0deg)) scale(0.94) translateY(10px);
+  }
+}
+
+/* --- スライドショー (アイドル時) --------------------------------------
+ * 新着が途切れても画面が「止まった」ように見えないように、
+ * 既にある写真をゆっくり大きく見せる。新着が来たら即座に抜ける。
+ */
+.slideshow {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: var(--veil);
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  pointer-events: none;
+}
+
+.slideshow.on {
+  opacity: 1;
+}
+
+.slideshow .stage {
+  background: var(--paper);
+  padding: 18px 18px 14px;
+  box-shadow: 0 20px 60px #000000aa;
+  transform: rotate(-1deg);
+  max-width: 74vw;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slideshow img {
+  max-width: 70vw;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+  /* ゆっくり寄っていく (Ken Burns)。1枚ごとにリセットされる */
+  animation: slow-zoom 8s ease-out both;
+}
+
+@keyframes slow-zoom {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.slideshow .label {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  min-height: 1.4em;
+}
+
+.slideshow .label .who {
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--ink-soft);
+  margin-left: 10px;
+}
+
+/* --- 画面の隅の情報 -------------------------------------------------- */
+.corner {
+  position: fixed;
+  z-index: 70;
+  background: var(--panel);
+  border-radius: 10px;
+  box-shadow: 0 6px 16px #00000055;
+}
+
+/* 左上: イベント名 */
+.plate {
+  top: 26px;
+  left: 26px;
+  padding: 10px 18px;
+  transform: rotate(-1.2deg);
+  max-width: 40vw;
+}
+
+.plate h1 {
+  margin: 0;
+  font-size: clamp(18px, 2.1vw, 34px);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plate .sub {
+  font-size: clamp(12px, 1.1vw, 17px);
+  color: var(--ink-soft);
+}
+
+/* 右下: ゲスト投稿用QR。常時表示 (指示書 §4.4) */
+.qr {
+  right: 26px;
+  bottom: 26px;
+  padding: 14px 14px 10px;
+  transform: rotate(1.4deg);
+  text-align: center;
+  width: clamp(150px, 15vw, 230px);
+}
+
+.qr .call {
+  font-size: clamp(13px, 1.2vw, 19px);
+  font-weight: 700;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.qr .code-box {
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: #fff;
+}
+
+.qr .code-box svg,
+.qr .code-box img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* CDN が使えずQRを描けなかったときの代替表示 */
+.qr .fallback {
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--ink-soft);
+  padding: 6px;
+}
+
+.qr .code {
+  margin-top: 8px;
+  font-size: clamp(15px, 1.5vw, 24px);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+/* 接続状態。正常なら出さない。 */
+.notice {
+  position: fixed;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #00000099;
+  color: #fff;
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.notice.on {
+  opacity: 1;
+}
+
+/* 全画面ボタン。マウスを動かしたときだけ出す。 */
+.tools {
+  position: fixed;
+  top: 22px;
+  right: 26px;
+  z-index: 80;
+  display: flex;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+body.show-cursor .tools {
+  opacity: 1;
+}
+
+.tools button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px #00000055;
+}
+
+/* --- 写真が1枚も無いとき -------------------------------------------- */
+.waiting {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.waiting .inner {
+  background: #fffdf6f5;
+  padding: 34px 44px;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px #00000055;
+  transform: rotate(-0.8deg);
+}
+
+.waiting h2 {
+  margin: 0 0 10px;
+  font-size: clamp(22px, 2.6vw, 44px);
+}
+
+.waiting p {
+  margin: 0;
+  font-size: clamp(14px, 1.3vw, 22px);
+  color: var(--ink-soft);
+}
+
+/* 動きを減らす設定の人には演出を出さない */
+@media (prefers-reduced-motion: reduce) {
+  .card.arrive,
+  .card.leave,
+  .slideshow img {
+    animation: none;
+  }
+}

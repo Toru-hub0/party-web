@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#c08a44" />
+    <meta name="robots" content="noindex" />
+    <title>PartyBoard — 会場スクリーン</title>
+    <!-- 地の質感 (生成物: node scripts/generate-textures.mjs) -->
+    <link rel="stylesheet" href="./textures.css" />
+    <link rel="stylesheet" href="./board.css" />
+  </head>
+  <body>
+    <!-- コルク地と木枠 (画像を使わずCSSだけで描く) -->
+    <div class="board" id="board" aria-live="polite"></div>
+    <div class="frame"></div>
+
+    <!-- 写真が来るまでの案内 -->
+    <div class="waiting" id="waiting">
+      <div class="inner">
+        <h2>写真をお待ちしています</h2>
+        <p>右下のQRコードを読み取って、スマホから写真を送ってください。</p>
+      </div>
+    </div>
+
+    <!-- 左上: イベント名 -->
+    <div class="corner plate" id="plate">
+      <h1 id="title">読み込み中…</h1>
+      <div class="sub"><span id="date"></span> <span id="count"></span></div>
+    </div>
+
+    <!-- 右下: ゲスト投稿用QR (常時表示) -->
+    <div class="corner qr" id="qr-panel">
+      <div class="call">あなたも写真を<br />投稿してください</div>
+      <div class="code-box" id="qr-box"></div>
+      <div class="code" id="code"></div>
+    </div>
+
+    <!-- アイドル時のスライドショー -->
+    <div class="slideshow" id="slideshow">
+      <div class="stage">
+        <img id="slide-image" alt="" />
+        <div class="label" id="slide-label"></div>
+      </div>
+    </div>
+
+    <div class="notice" id="notice"></div>
+
+    <div class="tools">
+      <button type="button" id="fullscreen">全画面</button>
+    </div>
+
+    <script type="module" src="./screen.js"></script>
+  </body>
+</html>

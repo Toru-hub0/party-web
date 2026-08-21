@@ -1,0 +1,4 @@
+# 検索エンジンに載せる意味が無いページなので、クロールを辞退する。
+# 各ページには <meta name="robots" content="noindex"> も入れてある。
+User-agent: *
+Disallow: /
