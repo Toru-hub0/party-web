@@ -6,6 +6,17 @@
  *   → 一晩中つけっぱなしなので、常時動くアニメーションは置かない
  *     (焼き付き・チラつき・視覚的な疲れを避ける)。動くのは新着の瞬間だけ。
  */
+/* --- hidden 属性を必ず効かせる -----------------------------------
+ * ブラウザ既定の `[hidden] { display: none }` はクラス指定に負けるので、
+ * display を持つ規則が1つあるだけで `el.hidden = true` が黙って無視される。
+ * 実際に「写真をお待ちしています」の案内が消えず、写真の上に覆いかぶさり
+ * 続ける不具合になった (その案内自体はその後廃止した)。後から規則を
+ * 追加しても壊れないよう、ここでまとめて押さえておく。
+ */
+[hidden] {
+  display: none !important;
+}
+
 /* --- 地の質感 --------------------------------------------------------
  * 粒や木目は SVG で実際に描いたタイル (web/textures.css)。
  *   生成: node scripts/generate-textures.mjs
@@ -449,8 +460,27 @@ body.show-cursor {
   padding: 6px;
 }
 
+/* QRが読めない人向けの案内。QRより控えめにして、コードだけは大きく見せる */
+.qr .fallback {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #00000018;
+}
+
+.qr .lead {
+  font-size: clamp(11px, 0.95vw, 15px);
+  color: var(--ink-soft);
+}
+
+.qr .url {
+  margin-top: 2px;
+  font-size: clamp(11px, 1vw, 16px);
+  font-weight: 600;
+  word-break: break-all;
+}
+
 .qr .code {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: clamp(15px, 1.5vw, 24px);
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -505,36 +535,6 @@ body.show-cursor .tools {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 12px #00000055;
-}
-
-/* --- 写真が1枚も無いとき -------------------------------------------- */
-.waiting {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  pointer-events: none;
-}
-
-.waiting .inner {
-  background: #fffdf6f5;
-  padding: 34px 44px;
-  border-radius: 14px;
-  box-shadow: 0 14px 40px #00000055;
-  transform: rotate(-0.8deg);
-}
-
-.waiting h2 {
-  margin: 0 0 10px;
-  font-size: clamp(22px, 2.6vw, 44px);
-}
-
-.waiting p {
-  margin: 0;
-  font-size: clamp(14px, 1.3vw, 22px);
-  color: var(--ink-soft);
 }
 
 /* 動きを減らす設定の人には演出を出さない */

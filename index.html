@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>PartyBoard</title>
+    <!--
+      会場スクリーンに出すURLを短くするための入口。
+      イベントコードの入力欄は join.html に1つだけ置いてあるので、そこへ送る。
+      JS が無効でも meta refresh で移動する。
+    -->
+    <meta http-equiv="refresh" content="0; url=./join.html" />
+    <link rel="canonical" href="./join.html" />
+  </head>
+  <body>
+    <p><a href="./join.html">イベントコードの入力へ</a></p>
+    <script>
+      // ?c=CODE 付きで共有された場合にコードを落とさない。
+      // (meta refresh はクエリを運べないので、JS がある場合はこちらが先に動く)
+      window.location.replace('./join.html' + window.location.search + window.location.hash);
+    </script>
+  </body>
+</html>

@@ -15,14 +15,6 @@
     <div class="board" id="board" aria-live="polite"></div>
     <div class="frame"></div>
 
-    <!-- 写真が来るまでの案内 -->
-    <div class="waiting" id="waiting">
-      <div class="inner">
-        <h2>写真をお待ちしています</h2>
-        <p>右下のQRコードを読み取って、スマホから写真を送ってください。</p>
-      </div>
-    </div>
-
     <!-- 左上: イベント名 -->
     <div class="corner plate" id="plate">
       <h1 id="title">読み込み中…</h1>
@@ -33,7 +25,12 @@
     <div class="corner qr" id="qr-panel">
       <div class="call">あなたも写真を<br />投稿してください</div>
       <div class="code-box" id="qr-box"></div>
-      <div class="code" id="code"></div>
+      <!-- QRが読めない人向け。URLを開いてこのコードを入力すれば同じページに来られる -->
+      <div class="fallback">
+        <div class="lead">QRが読めないときは</div>
+        <div class="url" id="join-url"></div>
+        <div class="code" id="code"></div>
+      </div>
     </div>
 
     <!-- アイドル時のスライドショー -->

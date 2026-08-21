@@ -1,5 +1,5 @@
 import { api, codeFromUrl, errorMessage } from './api.js';
-import { SUPPORT_URL } from './config.js';
+import { joinUrl, SUPPORT_URL } from './config.js';
 import { downloadPhoto, MAX_FILES, uploadFiles } from './upload.js';
 
 /**
@@ -39,9 +39,13 @@ const state = {
 el('support').href = SUPPORT_URL;
 
 async function init() {
+  setupCodeForm();
+
   state.code = codeFromUrl();
   if (!state.code) {
-    fatal('URLが正しくありません。幹事さんのQRコードをもう一度読み取ってください。');
+    // 行き止まりにしない。QRが読めなくてもコードを打てば入れる。
+    // ここでは案内をコードのカードに1つだけ置く (二重に書くと読まれない)。
+    showCodeForm();
     return;
   }
 
@@ -54,14 +58,69 @@ async function init() {
     el('main').hidden = false;
     applyStatus();
   } catch (e) {
+    // コードが間違っている / イベントが消えている。打ち直せるようにする。
     fatal(errorMessage(e));
+    showCodeForm();
   }
 }
 
+/**
+ * イベントコードの手入力。
+ *
+ * 打ち終わったら `join.html?c=CODE` へ移動する。状態を持ち回すのではなく
+ * URLを変えるのは、そのまま再読込・共有ができるようにするため。
+ */
+function setupCodeForm() {
+  const input = el('code-input');
+  const error = el('code-error');
+
+  const submit = () => {
+    // 見た目を合わせるための空白やハイフンは落とす (「ABC-123」でも通す)
+    const code = input.value.replace(/[\s-]/g, '').toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      error.textContent = 'コードは英数字6文字です。';
+      error.hidden = false;
+      input.focus();
+      return;
+    }
+    error.hidden = true;
+    window.location.href = joinUrl(code);
+  };
+
+  el('code-join').addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    }
+  });
+  // 打っている途中のエラー表示は邪魔なので消す
+  input.addEventListener('input', () => {
+    error.hidden = true;
+  });
+}
+
+function showCodeForm() {
+  genericHeader();
+  el('code-form').hidden = false;
+  el('code-input').focus();
+}
+
 function fatal(message) {
-  el('title').textContent = '';
+  genericHeader();
   el('fatal').hidden = false;
   el('fatal-message').textContent = message;
+}
+
+/**
+ * イベントが分からないときの見出し。
+ *
+ * イベント名の場所を空のまま残すと、色の付いた枠と空のバッジだけが浮いて
+ * 壊れて見える。かわりにサービス名を出して、日付・状態の行は畳む。
+ */
+function genericHeader() {
+  el('title').textContent = 'PartyBoard';
+  el('meta').hidden = true;
 }
 
 function renderHeader(photoCount) {

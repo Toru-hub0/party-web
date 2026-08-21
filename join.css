@@ -11,6 +11,16 @@
  *   だけを変える。ページ全体を飾ると、アプリと行き来したときに別のサービスに
  *   見えてしまうため。どのパーティに送るのかは、帯とイベント名で示す。
  */
+/* --- hidden 属性を必ず効かせる -----------------------------------
+ * ブラウザ既定の `[hidden] { display: none }` はクラス指定に負けるので、
+ * `display` を持つ規則が1つあると `el.hidden = true` が黙って無視される。
+ * 会場スクリーンで実際に起きたので (案内が写真の上に覛び続けた)、
+ * ここでまとめて押さえておく。scripts/test-board.mjs がこの行を見ている。
+ */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   /* アプリと同じ値 (constants/theme.ts) */
   --bg: #f2f2f7;
@@ -174,6 +184,27 @@ input[type='text'] {
 }
 
 .field + .field {
+  margin-top: 14px;
+}
+
+/* イベントコードの手入力。6文字を1文字ずつ確かめながら打つので、
+   大きく・字間を空けて・中央寄せにする (小文字で打たれても大文字で見せる)。 */
+.code-input {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  /* letter-spacing で右にずれて見えるのを打ち消す */
+  text-indent: 0.32em;
+}
+
+.hint.error {
+  color: var(--danger);
+}
+
+/* 入力欄とボタンが密着していると、押す前に一拍おく余地が無くて押し間違える */
+#code-form .btn {
   margin-top: 14px;
 }
 

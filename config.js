@@ -18,13 +18,16 @@ export const SUPABASE_ANON_KEY =
  * 効いてしまうと、細工したURLを配って別のサーバーへ写真を送らせられるため。
  * (scripts/mock-server.mjs での確認に使う)
  */
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+/** localhost で開いているときだけ有効な `?api=` の値。本番では常に null。 */
+function apiOverride() {
+  if (!LOCAL_HOSTS.includes(window.location.hostname)) return null;
+  return new URLSearchParams(window.location.search).get('api');
+}
+
 function resolveApiUrl() {
-  const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
-  if (isLocal) {
-    const override = new URLSearchParams(window.location.search).get('api');
-    if (override) return override;
-  }
-  return `${SUPABASE_URL}/functions/v1/party-api`;
+  return apiOverride() || `${SUPABASE_URL}/functions/v1/party-api`;
 }
 
 export const API_URL = resolveApiUrl();
@@ -35,8 +38,13 @@ export const API_URL = resolveApiUrl();
  * ハードコードせず現在のURLから導く (GitHub Pages のパスが変わっても壊れない)。
  */
 export function joinUrl(code) {
-  const base = new URL('.', window.location.href);
-  return `${base.href}join.html?c=${encodeURIComponent(code)}`;
+  const url = new URL('join.html', new URL('.', window.location.href));
+  url.searchParams.set('c', code);
+  // モックで確認しているあいだは差し替え先を引き継ぐ (でないと1画面進むたびに
+  // 本番のサーバーを見に行ってしまう)。本番では apiOverride() が null なので付かない。
+  const api = apiOverride();
+  if (api) url.searchParams.set('api', api);
+  return url.href;
 }
 
 /** 不適切な写真の報告先 (App Store ガイドライン 1.2 の通報導線)。 */

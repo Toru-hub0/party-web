@@ -20,11 +20,44 @@ import { api } from './api.js';
 const MAX_EDGE = 2048;
 const JPEG_QUALITY = 0.8;
 
-/** 同時アップロード数。 */
-const CONCURRENCY = 2;
+/**
+ * 同時実行数 — 「変換」と「送信」を分けて別々に絞る。
+ *
+ * 変換 (canvas への描き直し) はフル解像度の画像をメモリに載せるので、並列に
+ * するとスマホのブラウザが落ちる。送信はほぼ待ち時間なので並列にすると速い。
+ * まとめて1つの値にすると、メモリに合わせた小さい値が送信にも効いて遅くなる。
+ * (lib/upload.ts にも同じ考え方で同じ値が入っている)
+ */
+const PREPARE_CONCURRENCY = 2;
+const PIPELINE_CONCURRENCY = 6;
+
+/**
+ * R2 への PUT だけは1回やり直す。会場の Wi-Fi は人数ぶん混むので、並列度を
+ * 上げたぶん取りこぼしが増える。presign し直さず同じURLに送る (同じキーへの
+ * 上書きなので二重投稿にならない)。
+ */
+const PUT_ATTEMPTS = 2;
 
 /** 1回で選べる枚数の上限。 */
 export const MAX_FILES = 20;
+
+/**
+ * 同時に走る数を limit 本までに絞る。1本終わるたびに待っている先頭を起こす。
+ */
+function limiter(limit) {
+  let active = 0;
+  const waiting = [];
+  return async function run(task) {
+    if (active >= limit) await new Promise((resolve) => waiting.push(resolve));
+    active++;
+    try {
+      return await task();
+    } finally {
+      active--;
+      waiting.shift()?.();
+    }
+  };
+}
 
 function loadImage(file) {
   return new Promise((resolve, reject) => {
@@ -84,37 +117,54 @@ export async function prepareJpeg(file) {
   return { blob, width, height };
 }
 
-async function uploadOne(file, params) {
-  const { blob, width, height } = await prepareJpeg(file);
+/**
+ * presigned URL へ PUT する。失敗したら PUT_ATTEMPTS 回まで送り直す。
+ *
+ * ここが**ブラウザ固有の失敗点**。R2 バケットに CORS が設定されていないと、
+ * ブラウザはプリフライトの時点で止めてしまい、fetch は TypeError を投げる
+ * (ネットワーク断と区別が付かない)。素のメッセージは "Failed to fetch" など
+ * 英語なので、ゲストに見せる文言に置き換えて、切り分け情報は console に出す。
+ */
+async function putToR2(uploadUrl, blob) {
+  let corsSuspect = false;
+  for (let attempt = 1; attempt <= PUT_ATTEMPTS; attempt++) {
+    let res;
+    try {
+      res = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'image/jpeg' },
+        body: blob,
+      });
+    } catch (e) {
+      corsSuspect = true;
+      console.error(
+        `[upload] R2 への PUT がブラウザから送れませんでした (${attempt}/${PUT_ATTEMPTS})。` +
+          'バケットの CORS 設定 (AllowedOrigins に このページのオリジン / AllowedMethods に PUT / ' +
+          'AllowedHeaders に content-type) を確認してください。開発者は npm run check:cors で判定できます。',
+        e,
+      );
+      continue;
+    }
+    if (res.ok) return;
+    console.error(`[upload] R2 PUT failed (${attempt}/${PUT_ATTEMPTS})`, res.status);
+    // 4xx は送り直しても同じ結果になる (署名切れなど)
+    if (res.status >= 400 && res.status < 500) break;
+  }
+  // 「N枚が送信できませんでした。」に続けて出るので、ここは理由だけを書く
+  throw new Error(
+    corsSuspect
+      ? '通信状況を確認して、もう一度お試しください。'
+      : '写真の送信に失敗しました。もう一度お試しください。',
+  );
+}
+
+/** 変換済みの blob を送って、写真として登録する。 */
+async function sendPrepared(prepared, params) {
+  const { blob, width, height } = prepared;
   const presigned = await api.presignUpload(params.code);
 
   // 写真の実体は R2 へ直接 PUT する (サーバーを経由させない = 転送量を使わない)。
-  //
-  // ここが**ブラウザ固有の失敗点**。R2 バケットに CORS が設定されていないと、
-  // ブラウザはプリフライトの時点で止めてしまい、fetch は TypeError を投げる
-  // (ネットワーク断と区別が付かない)。素のメッセージは "Failed to fetch" など
-  // 英語なので、ゲストに見せる文言に置き換えて、原因の切り分け情報は console に出す。
-  let put;
-  try {
-    put = await fetch(presigned.upload_url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'image/jpeg' },
-      body: blob,
-    });
-  } catch (e) {
-    console.error(
-      '[upload] R2 への PUT がブラウザから送れませんでした。' +
-        'バケットの CORS 設定 (AllowedOrigins に このページのオリジン / AllowedMethods に PUT / ' +
-        'AllowedHeaders に content-type) を確認してください。開発者は npm run check:cors で判定できます。',
-      e,
-    );
-    // 「N枚が送信できませんでした。」に続けて出るので、ここは理由だけを書く
-    throw new Error('通信状況を確認して、もう一度お試しください。');
-  }
-  if (!put.ok) {
-    console.error('[upload] R2 PUT failed', put.status);
-    throw new Error('写真の送信に失敗しました。もう一度お試しください。');
-  }
+  await putToR2(presigned.upload_url, blob);
 
   const { photo } = await api.commitPhoto({
     code: params.code,
@@ -129,35 +179,41 @@ async function uploadOne(file, params) {
 }
 
 /**
- * 複数枚を CONCURRENCY 枚ずつ並列でアップロードする。
- * 1枚の失敗で全体を止めず、結果を枚数ぶん返す。
+ * 複数枚をアップロードする。
+ *
+ * 変換と送信を別の同時実行数で回すので、体感は「送信の並列度」で決まる。
+ * 1枚の失敗で全体を止めず、結果を枚数ぶん返す (押し直せばそのままリトライ)。
+ *
+ * 進捗は**終わった順**に増える。並列なので選んだ順とは一致しない。
  */
 export async function uploadFiles(files, params, onProgress) {
   const results = new Array(files.length);
   let done = 0;
-  let next = 0;
 
-  async function worker() {
-    for (;;) {
-      const index = next++;
-      if (index >= files.length) return;
-      try {
-        results[index] = { ok: true, photo: await uploadOne(files[index], params) };
-      } catch (e) {
-        console.warn('[upload] failed', files[index]?.name, e);
-        results[index] = {
-          ok: false,
-          error: e?.message || '送信できませんでした。',
-          file: files[index],
-        };
-      }
-      done++;
-      onProgress?.(done, files.length);
-    }
-  }
+  // pipeline が「同時に手をつける枚数」、prepare が「同時に変換する枚数」。
+  // pipeline の枠を取ったまま変換の順番待ちをするので、変換済みの blob が
+  // メモリに積み上がらない (最大 PIPELINE_CONCURRENCY 枚ぶんで収まる)。
+  const pipeline = limiter(PIPELINE_CONCURRENCY);
+  const prepare = limiter(PREPARE_CONCURRENCY);
 
   await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, files.length) }, () => worker()),
+    files.map((file, index) =>
+      pipeline(async () => {
+        try {
+          const prepared = await prepare(() => prepareJpeg(file));
+          results[index] = { ok: true, photo: await sendPrepared(prepared, params) };
+        } catch (e) {
+          console.warn('[upload] failed', file?.name, e);
+          results[index] = {
+            ok: false,
+            error: e?.message || '送信できませんでした。',
+            file,
+          };
+        }
+        done++;
+        onProgress?.(done, files.length);
+      }),
+    ),
   );
   return results;
 }

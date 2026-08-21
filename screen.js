@@ -60,9 +60,6 @@ const board = createBoard({
   slotCount: SLOT_COUNT,
   maxCards: MAX_CARDS,
   reservedElements: [el('plate'), el('qr-panel')],
-  onCountChange: (count) => {
-    el('waiting').hidden = count > 0;
-  },
 });
 
 // =====================================================================
@@ -76,6 +73,11 @@ async function init() {
     return;
   }
   el('code').textContent = state.code;
+  // 打ってもらう用なので、プロトコルと末尾スラッシュは落として短く見せる。
+  // 開くと index.html がコード入力欄 (join.html) へ送る。
+  el('join-url').textContent = new URL('.', window.location.href).href
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
   renderQr(joinUrl(state.code));
 
   try {
