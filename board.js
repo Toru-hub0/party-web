@@ -69,14 +69,34 @@ export function createBoard({
   // マスの計算
   // -------------------------------------------------------------------
 
+  /**
+   * 明示的に指定されたマス数。null なら画面の縦横比から自動で決める。
+   * 幹事がアプリから変えられる (party_events.screen_cols / screen_rows)。
+   */
+  let grid = null;
+
+  /** 実際に使っている格子 (自動で決めた場合も入る)。inspect() で覗ける。 */
+  let gridInUse = null;
+
+  /** 配置を差し替える。変わったときだけ貼り直す。 */
+  function setGrid(next) {
+    const cols = Number(next?.cols) || null;
+    const rows = Number(next?.rows) || null;
+    const same = grid ? grid.cols === cols && grid.rows === rows : cols === null && rows === null;
+    grid = cols && rows ? { cols, rows } : null;
+    if (!same) relayout();
+  }
+
   function layoutSlots() {
     const boardW = Math.max(320, view.innerWidth - MARGIN * 2);
     const boardH = Math.max(240, view.innerHeight - MARGIN * 2);
 
-    // slotCount 枚が1周で入る格子を、画面の縦横比に合わせて決める
+    // 指定があればそれに従う。無ければ slotCount 枚が1周で入る格子を、
+    // 画面の縦横比に合わせて決める。
     const aspect = boardW / boardH;
-    const cols = Math.max(2, Math.round(Math.sqrt(slotCount * aspect)));
-    const rows = Math.max(2, Math.ceil(slotCount / cols));
+    const cols = grid ? grid.cols : Math.max(2, Math.round(Math.sqrt(slotCount * aspect)));
+    const rows = grid ? grid.rows : Math.max(2, Math.ceil(slotCount / cols));
+    gridInUse = { cols, rows };
 
     const slotW = boardW / cols;
     const slotH = boardH / rows;
@@ -135,9 +155,11 @@ export function createBoard({
     // マス内でのずらし量。カードがマスより大きいぶんは、はみ出して重なる。
     const jitterX = (random() - 0.5) * Math.max(10, slot.slotW * 0.3);
     const jitterY = (random() - 0.5) * Math.max(10, slot.slotH * 0.26);
-    // 端のマスは、ずらした結果が枠の下に入らないところまで押し戻す
-    const maxLeft = Math.max(EDGE, view.innerWidth - EDGE - slot.cardW);
-    const maxTop = Math.max(EDGE, view.innerHeight - EDGE - slot.cardH);
+    // 端のマスは、ずらした結果が枠の下に入らないところまで押し戻す。
+    // floor しているのは、このあと Math.round で 1px 未満だけ外へ出るのを防ぐため
+    // (カードの幅・高さは割り算の結果なので小数になる)。
+    const maxLeft = Math.max(EDGE, Math.floor(view.innerWidth - EDGE - slot.cardW));
+    const maxTop = Math.max(EDGE, Math.floor(view.innerHeight - EDGE - slot.cardH));
     const left = Math.round(clampTo(slot.cx - slot.cardW / 2 + jitterX, EDGE, maxLeft));
     const top = Math.round(clampTo(slot.cy - slot.cardH / 2 + jitterY, EDGE, maxTop));
     card.el.style.left = `${left}px`;
@@ -306,6 +328,7 @@ export function createBoard({
     remove,
     relayout,
     layoutSlots,
+    setGrid,
     has: (photoId) => cards.some((c) => c.photo.id === photoId),
     ids: () => cards.map((c) => c.photo.id),
     get count() {
@@ -314,6 +337,8 @@ export function createBoard({
     /** テスト・デバッグ用に配置結果を覗く。 */
     inspect: () => ({
       slots: slots.length,
+      /** いま使っている格子。指定が無ければ自動で決めた値。 */
+      grid: gridInUse,
       stacks: slots.map((s) => s.stack),
       cards: cards.map((c) => ({ id: c.photo.id, rot: c.rot, z: c.z, rect: c.rect })),
     }),

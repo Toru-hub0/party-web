@@ -398,17 +398,24 @@ body.show-cursor {
 }
 
 /* 左上: イベント名 */
+/*
+ * 左上のイベント名。
+ *
+ * 主役は写真なので、名前は「どのパーティのボードか分かる」だけの大きさに
+ * とどめる。ここも予約領域なので、小さくしたぶん写真が貼れる面積が増える。
+ */
 .plate {
-  top: 26px;
-  left: 26px;
-  padding: 10px 18px;
+  top: 20px;
+  left: 20px;
+  padding: 7px 13px;
   transform: rotate(-1.2deg);
-  max-width: 40vw;
+  max-width: 30vw;
+  opacity: 0.92;
 }
 
 .plate h1 {
   margin: 0;
-  font-size: clamp(18px, 2.1vw, 34px);
+  font-size: clamp(14px, 1.25vw, 21px);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -416,45 +423,8 @@ body.show-cursor {
 }
 
 .plate .sub {
-  font-size: clamp(12px, 1.1vw, 17px);
+  font-size: clamp(10px, 0.8vw, 13px);
   color: var(--ink-soft);
-}
-
-/* --- 右下: ゲストの入り口 (指示書 §4.4) --------------------------------
- * QRは置かない。正方形なので盤面を大きく食うのに対し、会場では読み取れない
- * ことも多い (暗い / プロジェクタが反射する / 古い機種)。URLと6文字のコードを
- * 出しておけば、打てば必ず入れる。ゲスト用QRは幹事のアプリ側に残してある。
- *
- * 写真を貼れる面積を減らしたくないので、下辺に沿った細い1行にしている。
- */
-.invite {
-  right: 26px;
-  bottom: 26px;
-  padding: 10px 18px;
-  transform: rotate(0.8deg);
-  display: flex;
-  align-items: baseline;
-  gap: clamp(10px, 1.2vw, 20px);
-  /* 数メートル離れて読むので折り返さない */
-  white-space: nowrap;
-}
-
-.invite .call {
-  font-size: clamp(12px, 1.1vw, 18px);
-  font-weight: 700;
-  color: var(--ink-soft);
-}
-
-.invite .url {
-  font-size: clamp(12px, 1.15vw, 19px);
-  font-weight: 600;
-}
-
-/* 打ってもらうのはこの6文字なので、いちばん大きく出す */
-.invite .code {
-  font-size: clamp(17px, 1.7vw, 28px);
-  font-weight: 700;
-  letter-spacing: 0.2em;
 }
 
 /* 接続状態。正常なら出さない。 */

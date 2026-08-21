@@ -59,7 +59,8 @@ const board = createBoard({
   container: el('board'),
   slotCount: SLOT_COUNT,
   maxCards: MAX_CARDS,
-  reservedElements: [el('plate'), el('invite')],
+  // 予約は左上のイベント名だけ。盤面はできるだけ写真に使う
+  reservedElements: [el('plate')],
 });
 
 // =====================================================================
@@ -72,12 +73,6 @@ async function init() {
     showNotice('URLが正しくありません (?c=コード が必要です)', true);
     return;
   }
-  el('code').textContent = state.code;
-  // 打ってもらう用なので、プロトコルと末尾スラッシュは落として短く見せる。
-  // 開くと index.html がコード入力欄 (join.html) へ送る。
-  el('join-url').textContent = new URL('.', window.location.href).href
-    .replace(/^https?:\/\//, '')
-    .replace(/\/$/, '');
 
   try {
     await fullSync({ initial: true });
@@ -150,8 +145,9 @@ function renderHeader() {
   document.title = `${title} — PartyBoard`;
   el('title').textContent = title;
   el('date').textContent = event_date || '';
-  el('count').textContent = `${state.allPhotos.length}枚`;
   applyTheme(state.event.theme);
+  // 幹事がアプリで配置を変えたら、開いたままのこの画面も並び直る
+  board.setGrid({ cols: state.event.screen_cols, rows: state.event.screen_rows });
 }
 
 /** イベントに設定されたテーマ (コルク / 黒板 / ナイト) を反映する。 */
