@@ -141,7 +141,11 @@ el('file').addEventListener('change', (event) => {
 });
 
 function addFiles(files) {
+  // HEIC/HEIF は端末によって type が空で来ることがあるので拡張子でも見る。
+  // 実際の形式変換 (JPEG化) は upload.js が canvas で行うので、ここでは
+  // 「画像かどうか」だけを判定する。
   const images = files.filter((f) => f.type.startsWith('image/') || /\.(hei[cf])$/i.test(f.name));
+  const dropped = files.length - images.length;
   const room = MAX_FILES - state.picked.length;
   const accepted = images.slice(0, Math.max(0, room));
 
@@ -150,8 +154,11 @@ function addFiles(files) {
   }
   renderPreviews();
   setStatus('');
+  // 黙って捨てると「選んだのに増えない」と見える。理由を必ず出す。
   if (images.length > accepted.length) {
     setStatus(`一度に送れるのは${MAX_FILES}枚までです。`, true);
+  } else if (dropped > 0) {
+    setStatus('写真だけ送れます (動画やその他のファイルは送れません)。', true);
   }
 }
 

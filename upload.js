@@ -38,7 +38,11 @@ function loadImage(file) {
       URL.revokeObjectURL(url);
       // iPhone は accept="image/*" の input 経由なら通常 JPEG に変換されるが、
       // 変換されず HEIC のまま来た場合など、ブラウザがデコードできないケース。
-      reject(new Error('この写真は読み込めませんでした。別の写真でお試しください。'));
+      reject(
+        new Error(
+          'この写真の形式に対応できませんでした (HEIC など)。別の写真でお試しください。',
+        ),
+      );
     };
     img.src = url;
   });
