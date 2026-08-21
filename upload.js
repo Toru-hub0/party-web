@@ -88,11 +88,29 @@ async function uploadOne(file, params) {
   const { blob, width, height } = await prepareJpeg(file);
   const presigned = await api.presignUpload(params.code);
 
-  const put = await fetch(presigned.upload_url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'image/jpeg' },
-    body: blob,
-  });
+  // 写真の実体は R2 へ直接 PUT する (サーバーを経由させない = 転送量を使わない)。
+  //
+  // ここが**ブラウザ固有の失敗点**。R2 バケットに CORS が設定されていないと、
+  // ブラウザはプリフライトの時点で止めてしまい、fetch は TypeError を投げる
+  // (ネットワーク断と区別が付かない)。素のメッセージは "Failed to fetch" など
+  // 英語なので、ゲストに見せる文言に置き換えて、原因の切り分け情報は console に出す。
+  let put;
+  try {
+    put = await fetch(presigned.upload_url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: blob,
+    });
+  } catch (e) {
+    console.error(
+      '[upload] R2 への PUT がブラウザから送れませんでした。' +
+        'バケットの CORS 設定 (AllowedOrigins に このページのオリジン / AllowedMethods に PUT / ' +
+        'AllowedHeaders に content-type) を確認してください。開発者は npm run check:cors で判定できます。',
+      e,
+    );
+    // 「N枚が送信できませんでした。」に続けて出るので、ここは理由だけを書く
+    throw new Error('通信状況を確認して、もう一度お試しください。');
+  }
   if (!put.ok) {
     console.error('[upload] R2 PUT failed', put.status);
     throw new Error('写真の送信に失敗しました。もう一度お試しください。');
