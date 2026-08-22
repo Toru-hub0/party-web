@@ -151,7 +151,7 @@ function renderHeader() {
   applyTheme(state.event.theme);
   // 幹事がアプリで配置を変えたら、開いたままのこの画面も並び直る
   board.setGrid({ cols: state.event.screen_cols, rows: state.event.screen_rows });
-  board.setLook({ style: state.event.screen_style, labels: state.event.screen_labels });
+  board.setLook({ style: state.event.screen_style });
 }
 
 /** イベントに設定されたテーマ (コルク / 黒板 / ナイト) を反映する。 */
@@ -287,21 +287,18 @@ function showSlide() {
 
   const img = el('slide-image');
   img.src = photo.public_url;
-  img.alt = photo.caption || '';
+  img.alt = '';
+  /*
+   * 台 (白フチ) の形を写真に合わせる。CSS だけだと「画面いっぱいまで
+   * 引き伸ばす」と「フチを全周そろえる」が両立しないので、縦横比だけ
+   * ここから渡す。寸法は board.css が min() で計算する。
+   */
+  const ratio = photo.width > 0 && photo.height > 0 ? photo.width / photo.height : 4 / 3;
+  img.parentElement.style.setProperty('--arn', String(Math.round(ratio * 1000) / 1000));
   // ズームのアニメーションを頭から再生させる
   img.style.animation = 'none';
   void img.offsetWidth;
   img.style.animation = '';
-
-  const label = el('slide-label');
-  label.replaceChildren();
-  if (photo.caption) label.append(document.createTextNode(photo.caption));
-  if (photo.nickname) {
-    const who = document.createElement('span');
-    who.className = 'who';
-    who.textContent = `${photo.nickname} さん`;
-    label.append(who);
-  }
 }
 
 // =====================================================================

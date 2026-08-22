@@ -242,17 +242,33 @@ input[type='text'] {
   margin-top: 10px;
 }
 
-/* --- 選んだ写真のプレビュー ----------------------------------------- */
-/*
- * 小さなサムネイルだと「これで合っているか」が確かめられない。送る直前に
- * いちばん見たいものなので、幅いっぱいまで使う。1枚なら1列 (最大)、
- * 2枚以上なら2列。
+/* --- 選んだ写真のプレビュー -----------------------------------------
+ * iOS の「写真」アプリに寄せる: 白い面や角丸で囲わず、写真同士を 2px の隙間で
+ * 敷き詰めてカードの縁まで届かせる。送る直前にいちばん見たいものなので、
+ * まわりの装飾はできるだけ削って写真だけを見せる。
  */
+
+/* 写真が入っているあいだは、カードを写真の台にする (まわりの余白を消す) */
+#pick-card:has(.previews li) {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 写真の下に置くボタンと説明文は、カードの余白を自分で持つ */
+#pick-card:has(.previews li) > .btn {
+  margin: 14px 14px 0;
+  width: calc(100% - 28px);
+}
+
+#pick-card:has(.previews li) > .hint {
+  margin: 8px 14px;
+}
+
 .previews {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 14px 0 0;
+  gap: 2px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -266,14 +282,13 @@ input[type='text'] {
   position: relative;
   /* 正方形に切ると構図が分からないので、写真に近い形で見せる */
   aspect-ratio: 4 / 3;
+  background: #000;
 }
 
 .previews img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: var(--radius-sm);
-  background: var(--bg);
   display: block;
 }
 
@@ -284,23 +299,40 @@ input[type='text'] {
 
 .previews li:only-child img {
   height: auto;
-  max-height: 62vh;
+  max-height: 74vh;
   object-fit: contain;
 }
 
+/*
+ * 外すボタン。写真の外に出すと縁が要るので、写真の中に半透明の丸で置く
+ * (iOS の写真アプリと同じ位置・同じ見え方)。
+ */
 .previews button {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 24px;
-  height: 24px;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--label);
+  background: #00000066;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   color: #fff;
-  font-size: 14px;
+  font-size: 17px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* 見た目は 30px、指の当たりは 44px (::before で外へ広げる) */
+.previews button::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  bottom: -7px;
+  left: -7px;
 }
 
 /* --- 進捗・メッセージ ----------------------------------------------- */
@@ -411,9 +443,12 @@ input[type='text'] {
   z-index: 40;
   max-width: 560px;
   margin: 0 auto;
-  padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
-  background: var(--surface);
-  border-top: 1px solid var(--separator);
+  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+  /* iOS のツールバーと同じ「すりガラス」。効かないブラウザでは白地になる */
+  background: #ffffffd9;
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid var(--separator);
   border-radius: 14px 14px 0 0;
   touch-action: none;
   transition: transform 0.24s ease, opacity 0.22s ease;
@@ -480,31 +515,22 @@ input[type='text'] {
   min-width: 0;
 }
 
-/* イベント名が入るので、ボタンの文字は少し小さくして2行まで許す */
+/*
+ * 送るボタン。スワイプを知らない人はここを押す。迷わせないよう、
+ * ページのどのボタンよりも大きく・濃くしておく (差し色べた塗り + 17px)。
+ */
 .senddock-btn {
-  padding: 10px 12px;
-  font-size: 16px;
-  line-height: 1.3;
-}
-
-.senddock-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 6px;
-  font-size: 13px;
+  min-height: 52px;
+  padding: 12px 16px;
+  font-size: 17px;
   font-weight: 600;
-  color: var(--tint);
+  line-height: 1.2;
 }
 
-.senddock-hint[hidden] {
-  display: none;
-}
-
-.senddock-hint svg {
-  width: 15px;
-  height: 15px;
+.senddock-icon {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.4;
@@ -512,9 +538,22 @@ input[type='text'] {
   stroke-linejoin: round;
 }
 
+/* スワイプは「もう一つのやり方」。ボタンより控えめにする */
+.senddock-hint {
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--label-3);
+}
+
+.senddock-hint[hidden] {
+  display: none;
+}
+
 /* ドックが出ている間はページの下に余白を足して、内容が隠れないようにする */
 body.dock-open .wrap {
-  padding-bottom: 170px;
+  padding-bottom: 160px;
 }
 
 /* --- アルバム ------------------------------------------------------ */

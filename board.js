@@ -18,27 +18,50 @@
 /** カードの傾きの範囲 (度)。 */
 const MAX_TILT = 8;
 
-/** マスの外周に空ける余白 (px)。木枠に食い込ませない。 */
-const MARGIN = 34;
+/**
+ * 盤面の内側の余白。
+ *
+ * 固定 px にすると、4K のプロジェクタでは相対的に細く、iPad では太く見えて、
+ * 端末ごとに違う見た目になる。画面の短い辺に対する比率で決める。
+ */
+function marginFor(view) {
+  const short = Math.min(view.innerWidth, view.innerHeight);
+  return Math.max(22, Math.round(short * 0.032));
+}
+
+/** 木枠の太さ (web/board.css の .frame と同じ)。 */
+const FRAME = 22;
 
 /**
  * 木枠の下にカードが潜らないようにする内側の余白。
  *
- * 枠は左右22px (上下も同じ幅の帯を ::before/::after で描いている)。カードは
- * ±8度 傾けているので、見た目の四隅は矩形より 20px ほど外へ出る。両方を足して
- * この値まで内側に収める。マスの計算 (MARGIN) と分けているのは、端のマスだけを
- * 押し込めば済み、格子そのものを変えなくてよいから。
+ * カードを θ 度 傾けると、見た目の外形 (軸に沿った外接矩形) は
+ *   幅  w·cosθ + h·sinθ
+ *   高さ w·sinθ + h·cosθ
+ * になる。はみ出しは片側 ≈ max(w, h)·sinθ / 2 なので、木枠の太さに足す。
+ * 固定値にすると、カードが大きい配置 (3×2 など) で枠に食い込む。
+ *
+ * マスの計算 (marginFor) と分けているのは、端のマスだけを押し込めば済み、
+ * 格子そのものを変えなくてよいから。
  */
-const EDGE = 44;
+const TILT_SIN = Math.sin((MAX_TILT * Math.PI) / 180);
 
-/**
- * 予約領域 (左上のイベント名) の外側に足す余白。
- * 名札の縁ぎりぎりに中心が来ると、カードが名札にかぶって窮屈に見える。
- */
+function edgeFor(cardW, cardH) {
+  const overhang = (Math.max(cardW, cardH) * TILT_SIN) / 2;
+  return FRAME + Math.ceil(overhang) + 2;
+}
+
+/** 予約領域の外側に足す余白 (いまは予約していないので使われていない)。 */
 const RESERVED_PAD = 24;
 
 /** 同じ位置に重なったときにずらす量。端がのぞけば「隠れた写真」にならない。 */
 const NUDGE = 9;
+
+/**
+ * カードの高さ ÷ 幅。写真(4:3) + 全周 3% の白フチ から出した値。
+ * board.css の .card の padding と対応している。
+ */
+const CARD_RATIO = 0.765;
 
 /**
  * 「埋もれている」判定に使う格子の細かさ。カードの矩形を GRID×GRID 点で
@@ -89,20 +112,15 @@ export function createBoard({
 
   /**
    * 貼り方。'scatter' = すこし傾けて重ねる (既定) / 'neat' = 傾けず重ねない。
-   * 写真の下のひとことと名前を出すかも、幹事がアプリから変えられる。
+   * 幹事がアプリから変えられる (party_events.screen_style)。
    */
   let style = 'scatter';
-  let showLabels = true;
 
   /** 見せ方を差し替える。変わったときだけ貼り直す。 */
   function setLook(next) {
     const nextStyle = next?.style === 'neat' ? 'neat' : 'scatter';
-    // null / undefined は「出す」(既定)。false のときだけ隠す。
-    const nextLabels = next?.labels !== false;
-    if (nextStyle === style && nextLabels === showLabels) return;
+    if (nextStyle === style) return;
     style = nextStyle;
-    showLabels = nextLabels;
-    container.classList.toggle('no-labels', !showLabels);
     // 傾きは貼ったときに決めているので、貼り方を変えたら振り直す
     relayout({ retilt: true });
   }
@@ -116,9 +134,14 @@ export function createBoard({
     if (!same) relayout();
   }
 
+  /** いま使っている余白。placeCard と inspect から参照する。 */
+  let margin = marginFor(view);
+  let edge = edgeFor(260, 267);
+
   function layoutSlots() {
-    const boardW = Math.max(320, view.innerWidth - MARGIN * 2);
-    const boardH = Math.max(240, view.innerHeight - MARGIN * 2);
+    margin = marginFor(view);
+    const boardW = Math.max(320, view.innerWidth - margin * 2);
+    const boardH = Math.max(240, view.innerHeight - margin * 2);
 
     // 指定があればそれに従う。無ければ slotCount 枚が1周で入る格子を、
     // 画面の縦横比に合わせて決める。
@@ -131,20 +154,23 @@ export function createBoard({
     const slotH = boardH / rows;
 
     /*
-     * カードの高さは 写真(4:3) + 下の文字 + 余白 でおおよそ幅の 0.95 倍 + 20px。
-     * 文字を出さないときはその分だけ低い。
+     * カードは 写真(4:3) + 全周の白フチ だけになった (文字は廃止)。
+     * フチは board.css で幅の 3% なので、高さは
+     *   (1 - 0.06) * 3/4 + 0.06 = 0.765  ← 幅に対する比
+     * board.css の .card の padding を変えたらこの値も直す。
      *
      * scatter はマスより少し大きくして重なりを作る。neat はマスより小さくして
      * 重ならないようにする (「きちんと並べる」の見た目)。
      */
-    const ratio = showLabels ? 0.95 : 0.8;
+    const ratio = CARD_RATIO;
     const fill = style === 'neat' ? 0.92 : 1.08;
     const fillH = style === 'neat' ? 0.92 : 1.06;
     const byWidth = slotW * fill;
-    const byHeight = (slotH * fillH - 20) / ratio;
+    const byHeight = (slotH * fillH) / ratio;
     const cardW = Math.max(120, Math.min(byWidth, byHeight));
-    const cardH = cardW * ratio + 20;
+    const cardH = cardW * ratio;
     container.style.setProperty('--card-w', `${Math.round(cardW)}px`);
+    edge = edgeFor(cardW, cardH);
 
     /*
      * 左上のイベント名を避ける。
@@ -173,8 +199,8 @@ export function createBoard({
     const next = [];
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        const cx = MARGIN + slotW * (col + 0.5);
-        const cy = MARGIN + slotH * (row + 0.5);
+        const cx = margin + slotW * (col + 0.5);
+        const cy = margin + slotH * (row + 0.5);
         if (reserved.some((r) => cx > r.left && cx < r.right && cy > r.top && cy < r.bottom)) {
           continue;
         }
@@ -210,10 +236,10 @@ export function createBoard({
     // 端のマスは、ずらした結果が枠の下に入らないところまで押し戻す。
     // floor しているのは、このあと Math.round で 1px 未満だけ外へ出るのを防ぐため
     // (カードの幅・高さは割り算の結果なので小数になる)。
-    const maxLeft = Math.max(EDGE, Math.floor(view.innerWidth - EDGE - slot.cardW));
-    const maxTop = Math.max(EDGE, Math.floor(view.innerHeight - EDGE - slot.cardH));
-    let left = Math.round(clampTo(slot.cx - slot.cardW / 2 + jitterX, EDGE, maxLeft));
-    let top = Math.round(clampTo(slot.cy - slot.cardH / 2 + jitterY, EDGE, maxTop));
+    const maxLeft = Math.max(edge, Math.floor(view.innerWidth - edge - slot.cardW));
+    const maxTop = Math.max(edge, Math.floor(view.innerHeight - edge - slot.cardH));
+    let left = Math.round(clampTo(slot.cx - slot.cardW / 2 + jitterX, edge, maxLeft));
+    let top = Math.round(clampTo(slot.cy - slot.cardH / 2 + jitterY, edge, maxTop));
 
     /*
      * ぴったり同じ位置に置かない。
@@ -230,8 +256,8 @@ export function createBoard({
       // 端まで来ているときは反対へ逃がす (押し戻されて同じ位置に戻るのを防ぐ)
       const dx = left >= maxLeft ? -NUDGE : NUDGE;
       const dy = top >= maxTop ? -NUDGE : NUDGE;
-      left = Math.round(clampTo(left + dx, EDGE, maxLeft));
-      top = Math.round(clampTo(top + dy, EDGE, maxTop));
+      left = Math.round(clampTo(left + dx, edge, maxLeft));
+      top = Math.round(clampTo(top + dy, edge, maxTop));
     }
 
     card.el.style.left = `${left}px`;
@@ -257,7 +283,7 @@ export function createBoard({
     const img = doc.createElement('img');
     img.className = 'shot';
     img.src = photo.public_url;
-    img.alt = photo.caption || '';
+    img.alt = '';
     img.decoding = 'async';
     // 読めなかった写真でカードだけ残ると不自然なので、その場で外す
     img.addEventListener('error', () => {
@@ -265,22 +291,9 @@ export function createBoard({
       remove(photo.id, { animate: false });
     });
 
-    const label = doc.createElement('div');
-    label.className = 'label';
-    if (photo.caption) {
-      const caption = doc.createElement('span');
-      caption.className = 'caption';
-      caption.textContent = photo.caption;
-      label.append(caption);
-    }
-    if (photo.nickname) {
-      const who = doc.createElement('span');
-      who.className = 'who';
-      who.textContent = `${photo.nickname} さん`;
-      label.append(who);
-    }
-
-    card.append(pin, img, label);
+    // 写真の下に文字は置かない (ひとこと・名前は廃止した)。文字があるカードと
+    // 無いカードで白フチの太さが変わってしまうため。
+    card.append(pin, img);
     return card;
   }
 
@@ -414,7 +427,9 @@ export function createBoard({
       /** いま使っている格子。指定が無ければ自動で決めた値。 */
       grid: gridInUse,
       style,
-      showLabels,
+      /** 端末による違いを測るために出す */
+      margin,
+      edge,
       stacks: slots.map((s) => s.stack),
       cards: cards.map((c) => ({ id: c.photo.id, rot: c.rot, z: c.z, rect: c.rect })),
     }),

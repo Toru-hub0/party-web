@@ -201,9 +201,20 @@ body.show-cursor {
   position: absolute;
   width: var(--card-w);
   background: var(--paper);
-  padding: 10px 10px 8px;
-  border-radius: 3px;
-  box-shadow: 0 8px 18px #00000055, 0 1px 0 #ffffff88 inset;
+  /*
+   * 白フチ・角丸・影は**カードの幅に対する比率**で持つ。
+   * 固定 px にすると、4K のプロジェクタでは細く、iPad では太く見えて、
+   * 端末ごとに別物の見た目になる (基準は幅 260px のときの値)。
+   *
+   * フチは**全周そろえる**。以前は写真の下にひとことと名前を置いていたので
+   * 下だけ広くしていたが、文字がある写真と無い写真でフチの太さが変わり
+   * 「白い枠のサイズが変わる」不具合になっていた。文言そのものを廃止した。
+   */
+  padding: calc(var(--card-w) * 0.03);
+  border-radius: calc(var(--card-w) * 0.012);
+  box-shadow:
+    0 calc(var(--card-w) * 0.031) calc(var(--card-w) * 0.069) #00000055,
+    0 1px 0 #ffffff88 inset;
   /* --rot は JS が写真ごとにランダムで入れる (-8deg〜8deg) */
   transform: rotate(var(--rot, 0deg));
   transform-origin: 50% 0%;
@@ -218,40 +229,14 @@ body.show-cursor {
   background: #e8e0cf;
 }
 
-.card .label {
-  padding: 6px 2px 0;
-  min-height: 1.4em;
-  text-align: center;
-  line-height: 1.35;
-}
-
-.card .caption {
-  display: block;
-  font-size: calc(var(--card-w) * 0.072);
-  font-weight: 700;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card .who {
-  display: block;
-  font-size: calc(var(--card-w) * 0.058);
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* 画鋲 */
 .card .pin {
   position: absolute;
-  top: -9px;
+  top: calc(var(--card-w) * -0.035);
   left: 50%;
-  width: 22px;
-  height: 22px;
-  margin-left: -11px;
+  width: calc(var(--card-w) * 0.085);
+  height: calc(var(--card-w) * 0.085);
+  margin-left: calc(var(--card-w) * -0.0425);
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #ff8b80, var(--pin) 45%, var(--pin-dark));
   box-shadow: 0 3px 5px #00000066;
@@ -265,11 +250,11 @@ body.show-cursor {
 .card.taped::before {
   content: '';
   position: absolute;
-  top: -14px;
+  top: calc(var(--card-w) * -0.054);
   left: 50%;
-  width: 82px;
-  height: 28px;
-  margin-left: -41px;
+  width: calc(var(--card-w) * 0.315);
+  height: calc(var(--card-w) * 0.108);
+  margin-left: calc(var(--card-w) * -0.158);
   background: var(--tape);
   opacity: 0.85;
   box-shadow: 0 2px 4px #00000033;
@@ -282,10 +267,6 @@ body.show-cursor {
 }
 
 /* 写真の下の文字を出さない設定 (幹事がアプリで選ぶ) */
-.board.no-labels .card .label {
-  display: none;
-}
-
 /* --- 新着の演出 ------------------------------------------------------
  * 上からポンと落ちてきて、画鋲を軸に少し揺れて止まる。
  * 「増えたこと」に会場の視線が向くのが目的なので 1 秒弱で終わらせる。
@@ -343,6 +324,8 @@ body.show-cursor {
   opacity: 0;
   transition: opacity 0.8s ease;
   pointer-events: none;
+  /* ゆっくり寄る演出で写真が画面外へ出るので切る */
+  overflow: hidden;
 }
 
 .slideshow.on {
@@ -350,25 +333,43 @@ body.show-cursor {
 }
 
 /*
- * 1枚ずつ見せるモードは「写真を大きく見る」ためのものなので、白フチは最小限に
- * して画面いっぱいまで使う。以前は余白が広く、写真より白い部分が目立っていた。
+ * 1枚ずつ見せるモード。**画面いっぱい**に、ただし紙のフチは残す。
+ *
+ *   ・写真は画面の端まで引き伸ばす (max-* だけだと大きなディスプレイでは
+ *     等倍のまま止まり、4K では画面の半分ほどにしか映らなかった)
+ *   ・そのうえで細い白フチを残す。フチを丸ごと落とすと、コルクボードから
+ *     写真だけが抜け出したように見えてボードとの繋がりが切れる
+ *   ・フチの太さは画面の短辺に対する比率。どの端末でも同じ太さに見える
+ *
+ * 寸法は「写真の縦横比 (--arn) から、画面に収まる最大の大きさ」を自分で
+ * 計算している。台の形を写真に合わせるので、縦の写真でも横の写真でも
+ * フチの太さは全周そろう (--arn は JS が1枚ごとに入れる)。
  */
 .slideshow .stage {
+  --pad: 0.85vmin;
+  position: relative;
+  box-sizing: content-box;
+  aspect-ratio: var(--arn, 1.3333);
+  width: min(calc(100vw - 2 * var(--pad)), calc((100vh - 2 * var(--pad)) * var(--arn, 1.3333)));
+  height: auto;
+  padding: var(--pad);
   background: var(--paper);
-  /* 白フチは「写真が紙に載っている」と分かる最小限。下だけ文字のぶん少し広い */
-  padding: 5px 5px 3px;
-  box-shadow: 0 20px 60px #000000aa;
-  transform: rotate(-1deg);
-  max-width: 96vw;
-  max-height: 96vh;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  border-radius: calc(var(--pad) * 0.6);
+  box-shadow: 0 1.4vmin 3vmin #00000066;
+  transform: none;
+  /* ゆっくり寄る演出がフチの外へはみ出さないように */
+  overflow: hidden;
+  line-height: 0;
 }
 
 .slideshow img {
-  max-width: 93vw;
-  max-height: 88vh;
+  width: 100%;
+  height: 100%;
+  /*
+   * 切り抜き (cover) ではなく全体を入れる (contain)。パーティの写真は人が
+   * 写っているので、端を切ると顔が消えることがある。台の縦横比を写真に
+   * 合わせてあるので、ここで余白は生まれない。
+   */
   object-fit: contain;
   display: block;
   /* ゆっくり寄っていく (Ken Burns)。1枚ごとにリセットされる */
@@ -382,23 +383,6 @@ body.show-cursor {
   to {
     transform: scale(1.06);
   }
-}
-
-.slideshow .label {
-  text-align: center;
-  font-size: 20px;
-  font-weight: 700;
-  /* 文字が無い写真でも高さが揺れないぶんだけ確保する (余白は詰める) */
-  min-height: 1.1em;
-  line-height: 1.1;
-  padding-bottom: 2px;
-}
-
-.slideshow .label .who {
-  font-size: 17px;
-  font-weight: 400;
-  color: var(--ink-soft);
-  margin-left: 10px;
 }
 
 /* 左上: イベント名 */

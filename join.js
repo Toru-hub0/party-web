@@ -11,13 +11,6 @@ import { downloadPhoto, MAX_FILES, uploadFiles } from './upload.js';
 
 const el = (id) => document.getElementById(id);
 
-/**
- * 名前はイベントコードごとに覚える (誤投稿防止 §4.7-5)。
- * 全イベント共通で覚えると、別のパーティのページを開いたときに前回の状態を
- * 引き継いでしまい、「どのパーティに送っているのか」の手がかりが鈍る。
- */
-const nicknameKey = (code) => `partyboard.nickname.${code}`;
-
 /** 会場スクリーンと同じテーマ (party_events.theme)。 */
 const THEMES = ['cork', 'blackboard', 'night'];
 
@@ -48,8 +41,6 @@ async function init() {
     showCodeForm();
     return;
   }
-
-  el('nickname').value = localStorage.getItem(nicknameKey(state.code)) || '';
 
   try {
     const { event, photo_count } = await api.getEvent(state.code);
@@ -255,17 +246,12 @@ function updateSubmit() {
   submit.disabled = n === 0 || state.uploading;
   updateDock();
   if (state.uploading) return;
-  // どのパーティに送るのかをボタン自体に書く (押す直前に必ず目に入る)
-  const where = shortTitle();
-  submit.textContent = n <= 1 ? `${where}に投稿する` : `${where}に${n}枚投稿する`;
-}
-
-/** ボタンに収まる長さに詰めたイベント名。 */
-function shortTitle() {
-  const title = state.event?.title;
-  if (!title) return 'このボード';
-  const trimmed = title.length > 14 ? `${title.slice(0, 13)}…` : title;
-  return `「${trimmed}」`;
+  /*
+   * 「送る」と枚数だけ。以前はここにイベント名を入れていたが、名前が長いと
+   * 2行になって、肝心の「送る」が読み取りにくかった。どのパーティに送るのかは
+   * ページ上部の帯 (イベント名) で示している。
+   */
+  el('submit-label').textContent = n <= 1 ? 'ボードに送る' : `${n}枚をボードに送る`;
 }
 
 function setStatus(message, isError = false) {
@@ -315,16 +301,13 @@ function updateDock() {
   dock.hidden = !show;
   // 内容がドックの下に隠れないよう、出ている間だけ余白を足す
   document.body.classList.toggle('dock-open', show);
-  // 名前・ひとことは、送るものが決まってから聞く。写真が無いうちから入力欄が
-  // 並んでいると、最初にやること (写真を選ぶ) が埋もれる。
-  el('about-form').hidden = !(state.picked.length > 0 || state.uploading);
-
   // 写真を選んだあとは、送るボタン (ドック) が主役になる。
   // 「写真を選ぶ」を赤のまま残すと主ボタンが2つになって、どちらを押すのか迷う。
   const pick = el('pick');
   const picked = state.picked.length > 0;
   pick.classList.toggle('secondary', picked);
   pick.textContent = picked ? '写真を追加' : '写真を選ぶ';
+  el('privacy-note').hidden = !picked;
   el('senddock-hint').hidden = state.uploading;
   renderDockStack();
 }
@@ -420,10 +403,6 @@ el('submit').addEventListener('click', flyAndSubmit);
 async function submit() {
   if (state.picked.length === 0 || state.uploading) return;
 
-  const nickname = el('nickname').value.trim();
-  const caption = el('caption').value.trim();
-  localStorage.setItem(nicknameKey(state.code), nickname);
-
   state.uploading = true;
   renderPreviews();
   setStatus(`送信中… 0/${state.picked.length}`);
@@ -431,7 +410,9 @@ async function submit() {
   const files = state.picked.map((p) => p.file);
   const results = await uploadFiles(
     files,
-    { code: state.code, nickname: nickname || null, caption: caption || null },
+    // 名前・ひとことは聞かない。写真を選んで送るだけにしてある
+    // (入力欄があるぶんだけ手が止まり、送られない写真が増える)。
+    { code: state.code, nickname: null, caption: null },
     (done, total) => setStatus(`送信中… ${done}/${total}`),
   );
 
@@ -441,7 +422,6 @@ async function submit() {
   if (failed.length === 0) {
     for (const item of state.picked) URL.revokeObjectURL(item.url);
     state.picked = [];
-    el('caption').value = '';
     renderPreviews();
     setStatus('');
     showDone(results.length);

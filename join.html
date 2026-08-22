@@ -75,7 +75,7 @@
           </div>
 
           <div id="post-form">
-            <div class="card">
+            <div class="card" id="pick-card">
               <!--
                 accept="image/*" にしておくと iPhone は写真アプリから JPEG に変換して
                 渡してくれる (HEIC のままになるのを避けられる)。
@@ -88,34 +88,17 @@
                 multiple
                 hidden
               />
+              <ul class="previews" id="previews"></ul>
               <button class="btn" id="pick">写真を選ぶ</button>
               <p class="hint">まとめて選べます (最大20枚)。動画は送れません。</p>
               <p class="hint approval" id="approval-note" hidden>
                 このパーティは、幹事さんが確認した写真だけがスクリーンに表示されます。
               </p>
-              <ul class="previews" id="previews"></ul>
-            </div>
-
-            <!-- 送るものが決まってから聞く (写真を選ぶまでは出さない) -->
-            <div class="card" id="about-form" hidden>
-              <div class="field">
-                <label for="nickname">お名前 (任意)</label>
-                <input
-                  type="text"
-                  id="nickname"
-                  maxlength="24"
-                  placeholder="例: たろう"
-                  autocomplete="nickname"
-                />
-              </div>
-              <div class="field">
-                <label for="caption">ひとこと (任意)</label>
-                <input type="text" id="caption" maxlength="80" placeholder="例: 乾杯!" />
-              </div>
-              <p class="hint">
-                写真は位置情報を取り除いてから送られます。会場のスクリーンに表示されます。
+              <p class="hint" id="privacy-note" hidden>
+                写真は位置情報を取り除いてから送られます。
               </p>
             </div>
+
           </div>
         </section>
 
@@ -139,13 +122,16 @@
         <div class="senddock-row">
           <ul class="senddock-stack" id="senddock-stack" aria-hidden="true"></ul>
           <div class="senddock-main">
-            <button class="btn senddock-btn" id="submit" disabled>ボードに貼る</button>
-            <span class="senddock-hint" id="senddock-hint">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" /></svg>
-              上にスワイプで送る
-            </span>
+            <button class="btn senddock-btn" id="submit" disabled>
+              <svg class="senddock-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 19V6" />
+                <path d="M6 12l6-6 6 6" />
+              </svg>
+              <span id="submit-label">ボードに送る</span>
+            </button>
           </div>
         </div>
+        <span class="senddock-hint" id="senddock-hint">上にスワイプでも送れます</span>
         <div class="status" id="post-status"></div>
       </div>
 
