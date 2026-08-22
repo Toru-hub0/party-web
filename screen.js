@@ -37,8 +37,34 @@ const INITIAL_CARDS = 60;
 /** 新着が無いまま何ms経ったらスライドショーに入るか (指示書 §4.4: 2分)。 */
 const IDLE_MS = 2 * 60 * 1000;
 
-/** スライドショーで1枚を見せる時間。 */
+/**
+ * スライドショーで1枚を見せる時間の既定。
+ * 幹事がアプリから変えられる (party_events.screen_slide_seconds)。
+ * 0 が入っていたら「出さない」。
+ */
 const SLIDE_MS = 8000;
+
+/**
+ * スライドショーの写真が画面のどれだけを使うかの既定 (%)。
+ * 幹事がアプリから変えられる (party_events.screen_slide_fit)。
+ * 100 にすると紙のフチが画面の端に触れる。
+ */
+const SLIDE_FIT = 94;
+
+/** イベントの設定から、1枚あたりのミリ秒を出す。0 = 出さない。 */
+function slideMs() {
+  const seconds = state.event?.screen_slide_seconds;
+  if (seconds === 0) return 0;
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 3) return SLIDE_MS;
+  return Math.min(30, seconds) * 1000;
+}
+
+/** イベントの設定から、写真の大きさ (0〜1) を出す。 */
+function slideFit() {
+  const fit = state.event?.screen_slide_fit;
+  if (typeof fit !== 'number' || !Number.isFinite(fit)) return SLIDE_FIT / 100;
+  return Math.min(100, Math.max(60, fit)) / 100;
+}
 
 /** 差分ポーリングの間隔。Realtime が生きていても保険として回す。 */
 const POLL_MS = 15000;
@@ -156,6 +182,27 @@ function renderHeader() {
   // 幹事がアプリで配置を変えたら、開いたままのこの画面も並び直る
   board.setGrid({ cols: state.event.screen_cols, rows: state.event.screen_rows });
   board.setLook({ style: state.event.screen_style });
+  // スライドショーの設定も、開いたままのこの画面に効かせる
+  applySlideSettings();
+}
+
+/**
+ * スライドショーの設定を反映する。
+ * 「出さない」に変えられたら、いま出ていても閉じる。
+ */
+function applySlideSettings() {
+  document
+    .querySelector('.slideshow .stage')
+    .style.setProperty('--fit', String(Math.round(slideFit() * 1000) / 1000));
+  if (slideMs() === 0) {
+    stopSlideshow();
+    return;
+  }
+  // 間隔が変わったら、回している最中でも新しい間隔にする
+  if (state.slideshow.on) {
+    clearInterval(state.slideshow.timer);
+    state.slideshow.timer = setInterval(showSlide, slideMs());
+  }
 }
 
 /** イベントに設定されたテーマ (コルク / 黒板 / ナイト) を反映する。 */
@@ -259,6 +306,8 @@ async function connectRealtime() {
 // =====================================================================
 
 function checkIdle() {
+  // 幹事が「出さない」にしていたら何もしない
+  if (slideMs() === 0) return;
   const idle = Date.now() - state.lastArrivalAt > IDLE_MS;
   if (idle && !state.slideshow.on && state.allPhotos.length > 0) startSlideshow();
 }
@@ -268,7 +317,7 @@ function startSlideshow() {
   state.slideshow.index = 0;
   el('slideshow').classList.add('on');
   showSlide();
-  state.slideshow.timer = setInterval(showSlide, SLIDE_MS);
+  state.slideshow.timer = setInterval(showSlide, slideMs());
 }
 
 function stopSlideshow() {

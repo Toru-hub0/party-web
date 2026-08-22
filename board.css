@@ -346,15 +346,25 @@ body.show-cursor {
  * フチの太さは全周そろう (--arn は JS が1枚ごとに入れる)。
  */
 .slideshow .stage {
-  --pad: 0.85vmin;
+  /* 白フチの太さ。画面の短辺に対する比率なので、どの端末でも同じ太さに見える */
+  --pad: 2.2vmin;
+  /*
+   * 画面のどれだけを使うか。1 にすると紙が画面の端に触れて、写真だけが
+   * 貼り出されたように見える。少し引いてボードを残すと「大きく貼った1枚」に
+   * 見える (画面いっぱいに引き伸ばす指定は残したまま、縁だけ確保している)。
+   */
+  --fit: 0.94;
   position: relative;
   box-sizing: content-box;
   aspect-ratio: var(--arn, 1.3333);
-  width: min(calc(100vw - 2 * var(--pad)), calc((100vh - 2 * var(--pad)) * var(--arn, 1.3333)));
+  width: min(
+    calc(100vw * var(--fit) - 2 * var(--pad)),
+    calc((100vh * var(--fit) - 2 * var(--pad)) * var(--arn, 1.3333))
+  );
   height: auto;
   padding: var(--pad);
   background: var(--paper);
-  border-radius: calc(var(--pad) * 0.6);
+  border-radius: calc(var(--pad) * 0.25);
   box-shadow: 0 1.4vmin 3vmin #00000066;
   transform: none;
   /* ゆっくり寄る演出がフチの外へはみ出さないように */
@@ -376,12 +386,13 @@ body.show-cursor {
   animation: slow-zoom 8s ease-out both;
 }
 
+/* 寄りは控えめに。1.06 だと端が切れて「拡大しすぎ」に見えた */
 @keyframes slow-zoom {
   from {
     transform: scale(1);
   }
   to {
-    transform: scale(1.06);
+    transform: scale(1.025);
   }
 }
 
