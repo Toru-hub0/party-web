@@ -59,8 +59,11 @@ const board = createBoard({
   container: el('board'),
   slotCount: SLOT_COUNT,
   maxCards: MAX_CARDS,
-  // 予約は左上のイベント名だけ。盤面はできるだけ写真に使う
-  reservedElements: [el('plate')],
+  /*
+   * 盤面は予約しない。イベント名は右下の透かしで、写真の上に薄く重なるだけ
+   * (board.css の .plate)。予約すると、その一角だけ何も貼られない穴になる。
+   */
+  reservedElements: [],
 });
 
 // =====================================================================

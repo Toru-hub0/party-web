@@ -349,21 +349,25 @@ body.show-cursor {
   opacity: 1;
 }
 
+/*
+ * 1枚ずつ見せるモードは「写真を大きく見る」ためのものなので、白フチは最小限に
+ * して画面いっぱいまで使う。以前は余白が広く、写真より白い部分が目立っていた。
+ */
 .slideshow .stage {
   background: var(--paper);
-  padding: 18px 18px 14px;
+  padding: 10px 10px 8px;
   box-shadow: 0 20px 60px #000000aa;
   transform: rotate(-1deg);
-  max-width: 74vw;
-  max-height: 84vh;
+  max-width: 94vw;
+  max-height: 94vh;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .slideshow img {
-  max-width: 70vw;
-  max-height: 70vh;
+  max-width: 90vw;
+  max-height: 84vh;
   object-fit: contain;
   display: block;
   /* ゆっくり寄っていく (Ken Burns)。1枚ごとにリセットされる */
@@ -383,7 +387,9 @@ body.show-cursor {
   text-align: center;
   font-size: 22px;
   font-weight: 700;
-  min-height: 1.4em;
+  /* 文字が無い写真でも高さが揺れないぶんだけ確保する (余白は詰める) */
+  min-height: 1.2em;
+  line-height: 1.2;
 }
 
 .slideshow .label .who {
@@ -393,35 +399,38 @@ body.show-cursor {
   margin-left: 10px;
 }
 
-/* --- 画面の隅の情報 -------------------------------------------------- */
-.corner {
-  position: fixed;
-  z-index: 70;
-  background: var(--panel);
-  border-radius: 10px;
-  box-shadow: 0 6px 16px #00000055;
-}
-
 /* 左上: イベント名 */
 /*
- * 左上のイベント名。
+ * イベント名。右下に薄く置く「透かし」。
  *
- * 主役は写真なので、名前は「どのパーティのボードか分かる」だけの大きさに
- * とどめる。ここも予約領域なので、小さくしたぶん写真が貼れる面積が増える。
+ * 主役は写真なので、**盤面を予約しない** (screen.js は reservedElements を
+ * 渡していない)。写真はこの上にも貼られる。以前は左上に置いて周りのマスを
+ * 予約していたので、そこだけ何も貼られない穴になっていた。
+ *
+ * どのテーマ (コルク / 黒板 / ナイト) でも、写真の上でも読めるように、
+ * 白文字に暗い影を付けている。パネルは敷かない。
  */
 .plate {
-  top: 20px;
-  left: 20px;
-  padding: 7px 13px;
-  transform: rotate(-1.2deg);
-  max-width: 30vw;
-  opacity: 0.92;
+  position: fixed;
+  right: 26px;
+  bottom: 20px;
+  z-index: 70;
+  max-width: 34vw;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  /* 写真の邪魔をしないので、触れないようにもしておく */
+  pointer-events: none;
+  opacity: 0.62;
+  color: #fff;
+  text-shadow: 0 1px 3px #00000099, 0 0 12px #00000066;
 }
 
 .plate h1 {
   margin: 0;
-  font-size: clamp(14px, 1.25vw, 21px);
-  line-height: 1.25;
+  font-size: clamp(12px, 1.05vw, 18px);
+  font-weight: 700;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -429,8 +438,10 @@ body.show-cursor {
 
 .plate .sub {
   font-size: clamp(10px, 0.8vw, 13px);
-  color: var(--ink-soft);
+  color: #fff;
+  white-space: nowrap;
 }
+
 
 /* 接続状態。正常なら出さない。 */
 .notice {

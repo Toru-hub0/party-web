@@ -32,6 +32,15 @@ const MARGIN = 34;
 const EDGE = 44;
 
 /**
+ * 予約領域 (左上のイベント名) の外側に足す余白。
+ * 名札の縁ぎりぎりに中心が来ると、カードが名札にかぶって窮屈に見える。
+ */
+const RESERVED_PAD = 24;
+
+/** 同じ位置に重なったときにずらす量。端がのぞけば「隠れた写真」にならない。 */
+const NUDGE = 9;
+
+/**
  * 「埋もれている」判定に使う格子の細かさ。カードの矩形を GRID×GRID 点で
  * サンプリングし、全部が後から貼られたカードに覆われていれば埋もれたとみなす。
  * 厳密な多角形演算をせずに済み、テストでも同じ結果が出る。
@@ -137,25 +146,38 @@ export function createBoard({
     const cardH = cardW * ratio + 20;
     container.style.setProperty('--card-w', `${Math.round(cardW)}px`);
 
-    // 左上のイベント名と右下のQRに重なるマスは使わない
+    /*
+     * 左上のイベント名を避ける。
+     *
+     * 以前は「カードの矩形が少しでも重なるマスは使わない」にしていたが、
+     * カードは 260〜400px あるので、小さな名札でも周りのマスまで消えて
+     * **左上に何も貼られない穴**ができていた。
+     *
+     * いまは「マスの中心が名札の中に入るマスだけ使わない」。名札は z-index で
+     * カードより手前にあるので、カードの端が下に潜っても名前は読める。
+     * 中心が入らないなら、カードが名札で半分隠れることはない。
+     */
     const reserved = reservedElements
       .filter(Boolean)
       .map((node) => node.getBoundingClientRect())
       // jsdom や描画前は全部 0 になる。その場合は予約なしとして扱う。
-      .filter((r) => r.width > 0 && r.height > 0);
+      .filter((r) => r.width > 0 && r.height > 0)
+      // 名札のすぐ外に中心が来ると、カードが名札にかぶって窮屈に見えるので少し広げる
+      .map((r) => ({
+        left: r.left - RESERVED_PAD,
+        top: r.top - RESERVED_PAD,
+        right: r.right + RESERVED_PAD,
+        bottom: r.bottom + RESERVED_PAD,
+      }));
 
     const next = [];
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const cx = MARGIN + slotW * (col + 0.5);
         const cy = MARGIN + slotH * (row + 0.5);
-        const rect = {
-          left: cx - cardW / 2,
-          top: cy - cardH / 2,
-          right: cx + cardW / 2,
-          bottom: cy + cardH / 2,
-        };
-        if (reserved.some((r) => intersects(rect, r))) continue;
+        if (reserved.some((r) => cx > r.left && cx < r.right && cy > r.top && cy < r.bottom)) {
+          continue;
+        }
         // stack = このマスに何枚貼ったか。少ないマスから埋めていく。
         next.push({ cx, cy, slotW, slotH, cardW, cardH, stack: 0 });
       }
@@ -190,8 +212,28 @@ export function createBoard({
     // (カードの幅・高さは割り算の結果なので小数になる)。
     const maxLeft = Math.max(EDGE, Math.floor(view.innerWidth - EDGE - slot.cardW));
     const maxTop = Math.max(EDGE, Math.floor(view.innerHeight - EDGE - slot.cardH));
-    const left = Math.round(clampTo(slot.cx - slot.cardW / 2 + jitterX, EDGE, maxLeft));
-    const top = Math.round(clampTo(slot.cy - slot.cardH / 2 + jitterY, EDGE, maxTop));
+    let left = Math.round(clampTo(slot.cx - slot.cardW / 2 + jitterX, EDGE, maxLeft));
+    let top = Math.round(clampTo(slot.cy - slot.cardH / 2 + jitterY, EDGE, maxTop));
+
+    /*
+     * ぴったり同じ位置に置かない。
+     *
+     * ずらし量は乱数なので、たまに1px も違わない位置になる。そうなると古い方が
+     * 完全に隠れて、貼ったのに見えない写真ができる。少しだけずらして、必ず
+     * 端がのぞくようにする (枠の内側に収まる範囲で)。
+     */
+    for (let bump = 0; bump < 4; bump++) {
+      const taken = cards.some(
+        (c) => c !== card && c.rect && c.rect.left === left && c.rect.top === top,
+      );
+      if (!taken) break;
+      // 端まで来ているときは反対へ逃がす (押し戻されて同じ位置に戻るのを防ぐ)
+      const dx = left >= maxLeft ? -NUDGE : NUDGE;
+      const dy = top >= maxTop ? -NUDGE : NUDGE;
+      left = Math.round(clampTo(left + dx, EDGE, maxLeft));
+      top = Math.round(clampTo(top + dy, EDGE, maxTop));
+    }
+
     card.el.style.left = `${left}px`;
     card.el.style.top = `${top}px`;
     card.el.style.setProperty('--rot', `${card.rot}deg`);
