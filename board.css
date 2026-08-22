@@ -355,19 +355,20 @@ body.show-cursor {
  */
 .slideshow .stage {
   background: var(--paper);
-  padding: 10px 10px 8px;
+  /* 白フチは「写真が紙に載っている」と分かる最小限。下だけ文字のぶん少し広い */
+  padding: 5px 5px 3px;
   box-shadow: 0 20px 60px #000000aa;
   transform: rotate(-1deg);
-  max-width: 94vw;
-  max-height: 94vh;
+  max-width: 96vw;
+  max-height: 96vh;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 
 .slideshow img {
-  max-width: 90vw;
-  max-height: 84vh;
+  max-width: 93vw;
+  max-height: 88vh;
   object-fit: contain;
   display: block;
   /* ゆっくり寄っていく (Ken Burns)。1枚ごとにリセットされる */
@@ -385,11 +386,12 @@ body.show-cursor {
 
 .slideshow .label {
   text-align: center;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   /* 文字が無い写真でも高さが揺れないぶんだけ確保する (余白は詰める) */
-  min-height: 1.2em;
-  line-height: 1.2;
+  min-height: 1.1em;
+  line-height: 1.1;
+  padding-bottom: 2px;
 }
 
 .slideshow .label .who {
