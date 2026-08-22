@@ -345,6 +345,23 @@ body.show-cursor {
  * 計算している。台の形を写真に合わせるので、縦の写真でも横の写真でも
  * フチの太さは全周そろう (--arn は JS が1枚ごとに入れる)。
  */
+.slideshow {
+  /*
+   * 画面の大きさ。iOS Safari の 100vh は**ツールバーを除いた高さ**なので、
+   * 実際に見えている範囲より大きい。そのままだと写真の下が画面の外に出る。
+   * svh (小さいほうのビューポート) が使える環境ではそちらを使う。
+   */
+  --vw: 100vw;
+  --vh: 100vh;
+}
+
+@supports (height: 100svh) {
+  .slideshow {
+    --vw: 100svw;
+    --vh: 100svh;
+  }
+}
+
 .slideshow .stage {
   /* 白フチの太さ。画面の短辺に対する比率なので、どの端末でも同じ太さに見える */
   --pad: 2.2vmin;
@@ -354,14 +371,24 @@ body.show-cursor {
    * 見える (画面いっぱいに引き伸ばす指定は残したまま、縁だけ確保している)。
    */
   --fit: 0.94;
+  /*
+   * 写真が入る枠の大きさ。「幅で決まる大きさ」と「高さで決まる大きさ」の
+   * 小さいほうを取る。
+   *
+   * aspect-ratio は使わない。box-sizing: content-box と併せたときに
+   * 「縦横比を内側の箱に効かせるか、フチを含めた箱に効かせるか」の解釈が
+   * ブラウザで違い、WebKit では縦写真のときに 2*pad ぶん高くなって
+   * **写真の下が画面の外に出ていた**。縦横比 (--arn) を JS から受け取り、
+   * 幅と高さの両方をここで決めてしまう。
+   */
+  --inner: min(
+    calc(var(--vw) * var(--fit) - 2 * var(--pad)),
+    calc((var(--vh) * var(--fit) - 2 * var(--pad)) * var(--arn, 1.3333))
+  );
   position: relative;
   box-sizing: content-box;
-  aspect-ratio: var(--arn, 1.3333);
-  width: min(
-    calc(100vw * var(--fit) - 2 * var(--pad)),
-    calc((100vh * var(--fit) - 2 * var(--pad)) * var(--arn, 1.3333))
-  );
-  height: auto;
+  width: var(--inner);
+  height: calc(var(--inner) / var(--arn, 1.3333));
   padding: var(--pad);
   background: var(--paper);
   border-radius: calc(var(--pad) * 0.25);

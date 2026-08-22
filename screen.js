@@ -347,7 +347,7 @@ function showSlide() {
    * ここから渡す。寸法は board.css が min() で計算する。
    */
   const ratio = photo.width > 0 && photo.height > 0 ? photo.width / photo.height : 4 / 3;
-  img.parentElement.style.setProperty('--arn', String(Math.round(ratio * 1000) / 1000));
+  img.parentElement.style.setProperty('--arn', String(Math.round(ratio * 10000) / 10000));
   // ズームのアニメーションを頭から再生させる
   img.style.animation = 'none';
   void img.offsetWidth;
